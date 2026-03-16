@@ -49,6 +49,20 @@ async def get_vehicle_maintenances(
 
 
 @router.get(
+    "/maintenance",
+    response_model=list[MaintenanceResponse],
+    summary="Listar todos los mantenimientos",
+)
+async def get_all_maintenances(
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    """Obtiene todos los registros asíncronamente con paginación."""
+    return await maintenance_service.get_all_maintenances(db=db, skip=skip, limit=limit)
+
+
+@router.get(
     "/maintenance/{maintenance_id}",
     response_model=MaintenanceResponse,
     summary="Obtener detalle de un mantenimiento",

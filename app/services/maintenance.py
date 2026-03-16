@@ -62,6 +62,13 @@ async def update_maintenance(
 
 
 async def delete_maintenance(db: AsyncSession, maintenance_id: int) -> None:
-    """Elimina un registro asíncronamente."""
+    """Elimina un registro de mantenimiento asíncronamente."""
     maintenance = await get_maintenance_by_id(db, maintenance_id)
     await maintenance_repo.remove(db, id=maintenance.id)
+
+
+async def get_all_maintenances(
+    db: AsyncSession, skip: int = 0, limit: int = 50
+) -> list[Maintenance]:
+    """Obtiene todos los registros de mantenimiento asíncronamente con paginación."""
+    return await maintenance_repo.get_all_sorted(db, skip=skip, limit=limit)

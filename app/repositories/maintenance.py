@@ -26,6 +26,18 @@ class MaintenanceRepository(
         )
         return list(result.scalars().all())
 
+    async def get_all_sorted(
+        self, db: AsyncSession, *, skip: int = 0, limit: int = 50
+    ) -> list[Maintenance]:
+        """Obtiene y ordena todos los registros asíncronamente con paginación."""
+        result = await db.execute(
+            select(Maintenance)
+            .order_by(Maintenance.date.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def create_with_vehicle(
         self, db: AsyncSession, *, obj_in: MaintenanceCreate, vehicle_id: int
     ) -> Maintenance:
