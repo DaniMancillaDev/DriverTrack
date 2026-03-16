@@ -1,7 +1,7 @@
 """Router de autenticación."""
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.user import LoginRequest, UserCreate, UserResponse
@@ -16,18 +16,18 @@ router = APIRouter(prefix="/auth", tags=["Autenticación"])
     status_code=status.HTTP_201_CREATED,
     summary="Registrar un nuevo usuario",
 )
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    """Crea una nueva cuenta de usuario."""
-    return auth_service.create_user(db=db, user_data=user_data)
+async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+    """Crea una nueva cuenta asíncronamente."""
+    return await auth_service.create_user(db=db, user_data=user_data)
 
 
 @router.post(
     "/login",
     summary="Iniciar sesión",
 )
-def login(credentials: LoginRequest, db: Session = Depends(get_db)):
-    """Valida las credenciales del usuario."""
-    user = auth_service.authenticate_user(db=db, credentials=credentials)
+async def login(credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
+    """Valida las credenciales asíncronamente."""
+    user = await auth_service.authenticate_user(db=db, credentials=credentials)
     return {
         "message": "Login exitoso",
         "user": UserResponse.model_validate(user),

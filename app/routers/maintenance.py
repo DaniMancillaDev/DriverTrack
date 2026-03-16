@@ -1,7 +1,7 @@
 """Router de mantenimientos."""
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.maintenance import (
@@ -20,13 +20,13 @@ router = APIRouter(tags=["Mantenimientos"])
     status_code=status.HTTP_201_CREATED,
     summary="Registrar un mantenimiento",
 )
-def create_maintenance(
+async def create_maintenance(
     vehicle_id: int,
     maintenance_data: MaintenanceCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Crea un nuevo registro de mantenimiento para un vehículo."""
-    return maintenance_service.create_maintenance(
+    """Crea un registro de mantenimiento asíncronamente."""
+    return await maintenance_service.create_maintenance(
         db=db, vehicle_id=vehicle_id, maintenance_data=maintenance_data
     )
 
@@ -36,12 +36,16 @@ def create_maintenance(
     response_model=list[MaintenanceResponse],
     summary="Listar mantenimientos de un vehículo",
 )
-def get_vehicle_maintenances(
+async def get_vehicle_maintenances(
     vehicle_id: int,
-    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Obtiene todos los registros de mantenimiento de un vehículo."""
-    return maintenance_service.get_vehicle_maintenances(db=db, vehicle_id=vehicle_id)
+    """Obtiene los registros asíncronamente con paginación."""
+    return await maintenance_service.get_vehicle_maintenances(
+        db=db, vehicle_id=vehicle_id, skip=skip, limit=limit
+    )
 
 
 @router.get(
@@ -49,9 +53,9 @@ def get_vehicle_maintenances(
     response_model=MaintenanceResponse,
     summary="Obtener detalle de un mantenimiento",
 )
-def get_maintenance(maintenance_id: int, db: Session = Depends(get_db)):
-    """Obtiene los datos de un registro de mantenimiento por su ID."""
-    return maintenance_service.get_maintenance_by_id(db=db, maintenance_id=maintenance_id)
+async def get_maintenance(maintenance_id: int, db: AsyncSession = Depends(get_db)):
+    """Obtiene un registro asíncronamente."""
+    return await maintenance_service.get_maintenance_by_id(db=db, maintenance_id=maintenance_id)
 
 
 @router.put(
@@ -59,13 +63,13 @@ def get_maintenance(maintenance_id: int, db: Session = Depends(get_db)):
     response_model=MaintenanceResponse,
     summary="Actualizar un mantenimiento",
 )
-def update_maintenance(
+async def update_maintenance(
     maintenance_id: int,
     maintenance_data: MaintenanceUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Actualiza los campos de un registro de mantenimiento."""
-    return maintenance_service.update_maintenance(
+    """Actualiza un registro asíncronamente."""
+    return await maintenance_service.update_maintenance(
         db=db, maintenance_id=maintenance_id, maintenance_data=maintenance_data
     )
 
@@ -75,6 +79,6 @@ def update_maintenance(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Eliminar un mantenimiento",
 )
-def delete_maintenance(maintenance_id: int, db: Session = Depends(get_db)):
-    """Elimina un registro de mantenimiento por su ID."""
-    maintenance_service.delete_maintenance(db=db, maintenance_id=maintenance_id)
+async def delete_maintenance(maintenance_id: int, db: AsyncSession = Depends(get_db)):
+    """Elimina un registro asíncronamente."""
+    await maintenance_service.delete_maintenance(db=db, maintenance_id=maintenance_id)
