@@ -13,11 +13,19 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
-class VehicleType(str, enum.Enum):
-    """Tipos de vehículo permitidos en el sistema."""
+class VehicleType(Base):
+    """Tabla de catálogo para tipos de vehículo (Car, Moto, etc)."""
 
-    CAR = "car"
-    MOTO = "moto"
+    __tablename__ = "vehicle_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    slug: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(100), nullable=False)
+    icon: Mapped[str] = mapped_column(String(100), nullable=False)
+    image_url: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # Relaciones
+    vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="vehicle_type")
 
 
 class Vehicle(Base):
@@ -29,19 +37,29 @@ class Vehicle(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"), nullable=False, index=True
     )
-    type: Mapped[VehicleType] = mapped_column(Enum(VehicleType), nullable=False)
+    type_id: Mapped[int] = mapped_column(
+        ForeignKey("vehicle_types.id"), nullable=False, index=True
+    )
     brand: Mapped[str] = mapped_column(String(100), nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     plate: Mapped[str] = mapped_column(
         String(20), unique=True, nullable=False, index=True
     )
     year: Mapped[int] = mapped_column(Integer, nullable=False)
+    mileage: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_mileage: Mapped[int] = mapped_column(Integer, nullable=False, default=50000)
+    image_url: Mapped[str] = mapped_column(String(500), nullable=True)
+    next_service: Mapped[str] = mapped_column(
+        String(100), nullable=True, default="Pending Service Config"
+    )
+    is_favorite: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc)
     )
 
     # Relaciones
     owner: Mapped["User"] = relationship(back_populates="vehicles")
+    vehicle_type: Mapped["VehicleType"] = relationship(back_populates="vehicles")
     maintenances: Mapped[list["Maintenance"]] = relationship(
         back_populates="vehicle", cascade="all, delete-orphan"
     )
