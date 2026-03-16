@@ -2,7 +2,9 @@
 
 from typing import Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.vehicle import Vehicle
 from app.repositories.base import BaseRepository
@@ -10,23 +12,36 @@ from app.schemas.vehicle import VehicleCreate, VehicleUpdate
 
 
 class VehicleRepository(BaseRepository[Vehicle, VehicleCreate, VehicleUpdate]):
-    """Repositorio para gestionar Vehículos."""
+    """Repositorio para gestionar Vehículos asíncronamente."""
 
-    def get_by_plate(
-        self, db: Session, *, plate: str, exclude_id: Optional[int] = None
+    async def get(self, db: AsyncSession, id: int) -> Vehicle | None:
+        """Obtiene un vehículo por ID con su tipo cargado."""
+        query = select(Vehicle).filter(Vehicle.id == id).options(selectinload(Vehicle.vehicle_type))
+        result = await db.execute(query)
+        return result.scalars().first()
+
+    async def get_all(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> list[Vehicle]:
+        """Obtiene todos los vehículos con su tipo cargado."""
+        query = select(Vehicle).options(selectinload(Vehicle.vehicle_type)).offset(skip).limit(limit)
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_by_plate(
+        self, db: AsyncSession, *, plate: str, exclude_id: Optional[int] = None
     ) -> Vehicle | None:
-        """Busca un vehículo por su placa.
-        
-        Si exclude_id se provee, ignora ese ID (útil para validaciones al actualizar).
-        """
-        query = db.query(Vehicle).filter(Vehicle.plate == plate)
+        """Busca un vehículo por su placa asíncronamente."""
+        query = select(Vehicle).filter(Vehicle.plate == plate).options(selectinload(Vehicle.vehicle_type))
         if exclude_id is not None:
             query = query.filter(Vehicle.id != exclude_id)
-        return query.first()
+        
+        result = await db.execute(query)
+        return result.scalars().first()
 
-    def get_by_user(self, db: Session, *, user_id: int) -> list[Vehicle]:
-        """Obtiene la lista de vehículos que pertenecen a un usuario específico."""
-        return db.query(Vehicle).filter(Vehicle.user_id == user_id).all()
+    async def get_by_user(self, db: AsyncSession, *, user_id: int) -> list[Vehicle]:
+        """Obtiene la lista de vehículos de un usuario asíncronamente."""
+        query = select(Vehicle).filter(Vehicle.user_id == user_id).options(selectinload(Vehicle.vehicle_type))
+        result = await db.execute(query)
+        return list(result.scalars().all())
 
 
 # Instancia única del repositorio para ser usada en los servicios
