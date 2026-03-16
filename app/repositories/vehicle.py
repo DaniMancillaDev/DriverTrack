@@ -14,6 +14,12 @@ from app.schemas.vehicle import VehicleCreate, VehicleUpdate
 class VehicleRepository(BaseRepository[Vehicle, VehicleCreate, VehicleUpdate]):
     """Repositorio para gestionar Vehículos asíncronamente."""
 
+    async def create(self, db: AsyncSession, *, obj_in: VehicleCreate) -> Vehicle:
+        """Crea un vehículo y carga su tipo para la respuesta."""
+        db_obj = await super().create(db, obj_in=obj_in)
+        # Re-buscamos para cargar la relación vehicle_type y evitar error de lazy loading
+        return await self.get(db, db_obj.id) # type: ignore
+
     async def get(self, db: AsyncSession, id: int) -> Vehicle | None:
         """Obtiene un vehículo por ID con su tipo cargado."""
         query = select(Vehicle).filter(Vehicle.id == id).options(selectinload(Vehicle.vehicle_type))

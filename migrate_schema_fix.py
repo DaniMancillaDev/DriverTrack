@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-db_path = r'f:\Labs\python\DriverTrack\drivetrack.db'
+db_path = '/home/danim/Escritorio/Labs/Python/DriveTrack/drivetrack.db'
 
 def fix_schema():
     if not os.path.exists(db_path):
@@ -12,21 +12,8 @@ def fix_schema():
     cursor = conn.cursor()
 
     try:
-        # 1. Check current schema
-        cursor.execute("PRAGMA table_info(vehicles)")
-        columns = [row[1] for row in cursor.fetchall()]
-        print(f"Current columns in 'vehicles': {columns}")
-
-        if 'type' not in columns:
-            print("Cleanup already done. No 'type' column found.")
-            return
-
-        print("Starting 'copy-and-swap' migration to remove 'type' column...")
-
-        # 2. Get current table structure but without the 'type' column
-        # and ensuring 'type_id' exists and is used.
-        
-        # Create vehicle_types if not exists (insurance)
+        # 1. Ensure catalogue exists and is populated
+        print("Ensuring vehicle types catalogue exists...")
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS vehicle_types (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,13 +24,26 @@ def fix_schema():
         )
         """)
 
-        # Ensure we have the standard types
         types = [
             ('car', 'Car', 'directions_car_filled_rounded', 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&q=80&w=1000'),
             ('moto', 'Motorcycle', 'motorcycle_rounded', 'https://images.unsplash.com/photo-1558981403-c5f91cbba527?auto=format&fit=crop&q=80&w=1000')
         ]
         for t in types:
             cursor.execute("INSERT OR IGNORE INTO vehicle_types (slug, label, icon, image_url) VALUES (?, ?, ?, ?)", t)
+        
+        conn.commit()
+        print("Catalogue check complete.")
+
+        # 2. Check current schema for vehicles table
+        cursor.execute("PRAGMA table_info(vehicles)")
+        columns = [row[1] for row in cursor.fetchall()]
+        print(f"Current columns in 'vehicles': {columns}")
+
+        if 'type' not in columns:
+            print("Vehicles table already has the correct schema. Done.")
+            return
+
+        print("Starting 'copy-and-swap' migration to remove 'type' column...")
 
         # 3. Create new table with the correct schema
         cursor.execute("DROP TABLE IF EXISTS vehicles_new")
@@ -68,17 +68,8 @@ def fix_schema():
         """)
 
         # 4. Copy data from old to new
-        # We need to map 'type' (string) to 'type_id' if it hasn't been done meticulously
-        # But if type_id already exists in old table, we use that.
-        
-        selectable_cols = []
-        for col in columns:
-            if col != 'type':
-                selectable_cols.append(col)
-        
+        selectable_cols = [col for col in columns if col != 'type']
         cols_str = ", ".join(selectable_cols)
-        
-        # If type_id was empty or needs mapping from 'type'
         cursor.execute(f"INSERT INTO vehicles_new ({cols_str}) SELECT {cols_str} FROM vehicles")
 
         # 5. Swap tables
