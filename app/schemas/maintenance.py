@@ -4,7 +4,7 @@ Define los modelos Pydantic para creación, actualización
 y respuestas de la API relacionadas a registros de mantenimiento.
 """
 
-from datetime import date
+import datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -18,10 +18,11 @@ class MaintenanceCreate(BaseModel):
     no en el cuerpo de la petición.
     """
 
-    date: date
+    date: datetime.date
     description: str
     cost: Decimal
     mileage: int
+    category: str = "General"
 
 
 class MaintenanceUpdate(BaseModel):
@@ -30,10 +31,11 @@ class MaintenanceUpdate(BaseModel):
     Solo se actualizan los campos enviados en la petición.
     """
 
-    date: Optional[date] = None
+    date: Optional[datetime.date] = None
     description: Optional[str] = None
     cost: Optional[Decimal] = None
     mileage: Optional[int] = None
+    category: Optional[str] = None
 
 
 class MaintenanceResponse(BaseModel):
@@ -41,9 +43,10 @@ class MaintenanceResponse(BaseModel):
 
     id: int
     vehicle_id: int
-    date: date
+    date: datetime.date
     description: str
     cost: Decimal
     mileage: int
+    category: str = "General"
 
     model_config = {"from_attributes": True}

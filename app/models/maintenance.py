@@ -7,7 +7,7 @@ el historial de mantenimientos de cada vehículo.
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Integer, Numeric, Text
+from sqlalchemy import Date, ForeignKey, Integer, Numeric, Text, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -26,6 +26,7 @@ class Maintenance(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     cost: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     mileage: Mapped[int] = mapped_column(Integer, nullable=False)
+    category: Mapped[str] = mapped_column(String(50), default="General", server_default="General")
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc)
     )

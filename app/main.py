@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
 import app.models # Importante para que SQLAlchemy detecte todos los modelos
-from app.routers import auth, maintenance, vehicles, users
+from app.routers import auth, maintenance, vehicles, users, notifications, notifications_ws
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +44,8 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(vehicles.router)
 app.include_router(maintenance.router)
+app.include_router(notifications.router)
+app.include_router(notifications_ws.router)
 
 
 @app.get("/", tags=["Root"])

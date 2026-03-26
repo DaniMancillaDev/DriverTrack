@@ -33,5 +33,10 @@ class User(Base):
         back_populates="owner", cascade="all, delete-orphan"
     )
 
+    # Un usuario puede tener varias notificaciones
+    notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         return f"<User(id={self.id}, email='{self.email}')>"
