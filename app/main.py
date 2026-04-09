@@ -16,6 +16,7 @@ from app.database import engine, Base, AsyncSessionLocal
 import app.models  # Importante para que SQLAlchemy detecte todos los modelos
 from app.core.seeds import run_seeds
 from app.routers import auth, maintenance, vehicles, users, notifications, notifications_ws
+from app.services.storage import ensure_bucket_exists
 
 
 # ─── Security Headers Middleware ─────────────────────────────
@@ -42,13 +43,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Maneja el ciclo de vida de la aplicación."""
-    # Crea las tablas asíncronamente al iniciar
+    # 1. Crear tablas en la BD
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Inserta datos de catálogo si no existen
+    # 2. Seeds: vehicle types + admin
     async with AsyncSessionLocal() as session:
         await run_seeds(session)
+
+    # 3. Crear bucket de MinIO si no existe
+    try:
+        ensure_bucket_exists()
+        print(f"  ✓ MinIO bucket '{settings.minio_bucket}' OK")
+    except Exception as exc:
+        # Si MinIO no está disponible, solo advertir (no crashear)
+        print(f"  ⚠️  MinIO no disponible: {exc}")
+        print("     Las funciones de foto no estarán disponibles.")
 
     yield
     # Limpieza al cerrar
