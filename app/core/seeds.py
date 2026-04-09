@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.vehicle import VehicleType
+from app.models.user import User
+from app.core.security import get_password_hash
 
 
 VEHICLE_TYPES = [
@@ -26,10 +28,17 @@ VEHICLE_TYPES = [
     },
 ]
 
+# ─── Cuenta de admin para desarrollo ─────────────────────────
+# Credenciales: admin@admin.com / Admin1234
+# La contraseña se hashea en el seed — no está en texto plano aquí.
+ADMIN_EMAIL = "admin@admin.com"
+ADMIN_PASSWORD = "Admin1234"       # ← Cumple validación: mayúscula + número
+ADMIN_FULL_NAME = "Admin DriveTrack"
+
 
 async def seed_vehicle_types(session: AsyncSession) -> int:
     """Inserta los tipos de vehículo si la tabla está vacía.
-    
+
     Returns:
         Número de registros insertados (0 si ya existían).
     """
@@ -43,6 +52,29 @@ async def seed_vehicle_types(session: AsyncSession) -> int:
     return len(types)
 
 
+async def seed_admin_user(session: AsyncSession) -> bool:
+    """Crea el usuario admin si no existe.
+
+    Returns:
+        True si fue creado, False si ya existía.
+    """
+    result = await session.execute(
+        select(User).where(User.email == ADMIN_EMAIL)
+    )
+    if result.scalars().first() is not None:
+        return False
+
+    admin = User(
+        email=ADMIN_EMAIL,
+        hashed_password=get_password_hash(ADMIN_PASSWORD),
+        full_name=ADMIN_FULL_NAME,
+        is_active=True,
+    )
+    session.add(admin)
+    await session.commit()
+    return True
+
+
 async def run_seeds(session: AsyncSession) -> None:
     """Ejecuta todos los seeders de catálogo."""
     count = await seed_vehicle_types(session)
@@ -50,3 +82,9 @@ async def run_seeds(session: AsyncSession) -> None:
         print(f"  ✓ Seeded {count} vehicle types")
     else:
         print("  ✓ Vehicle types already present")
+
+    created = await seed_admin_user(session)
+    if created:
+        print(f"  ✓ Admin created: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
+    else:
+        print(f"  ✓ Admin already exists: {ADMIN_EMAIL}")
