@@ -16,3 +16,7 @@ venv/
 # Base de datos SQLite local
 *.db
 *.sqlite3
+
+# MinIO local storage y binario
+minio_data/
+minio_bin

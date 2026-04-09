@@ -1,9 +1,13 @@
 """Servicios para el registro de mantenimientos."""
 
+from typing import Optional
+
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.maintenance import Maintenance
+from app.models.vehicle import Vehicle
 from app.repositories.maintenance import maintenance_repo
 from app.repositories.vehicle import vehicle_repo
 from app.schemas.maintenance import MaintenanceCreate, MaintenanceUpdate
@@ -41,15 +45,14 @@ async def get_vehicle_maintenances(
     )
 
 
-async def get_maintenance_by_id(db: AsyncSession, maintenance_id: int) -> Maintenance:
-    """Busca un registro asíncronamente."""
-    maintenance = await maintenance_repo.get(db, id=maintenance_id)
-    if not maintenance:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Registro de mantenimiento no encontrado",
-        )
-    return maintenance
+async def get_maintenance_by_id(
+    db: AsyncSession, maintenance_id: int
+) -> Optional[Maintenance]:
+    """Busca un registro por ID. Retorna None si no existe.
+
+    El router es responsable de lanzar el 404 si es necesario.
+    """
+    return await maintenance_repo.get(db, id=maintenance_id)
 
 
 async def update_maintenance(
@@ -70,5 +73,23 @@ async def delete_maintenance(db: AsyncSession, maintenance_id: int) -> None:
 async def get_all_maintenances(
     db: AsyncSession, skip: int = 0, limit: int = 50
 ) -> list[Maintenance]:
-    """Obtiene todos los registros de mantenimiento asíncronamente con paginación."""
+    """Obtiene todos los registros de mantenimiento con paginación (uso interno)."""
     return await maintenance_repo.get_all_sorted(db, skip=skip, limit=limit)
+
+
+async def get_user_maintenances(
+    db: AsyncSession, user_id: int, skip: int = 0, limit: int = 50
+) -> list[Maintenance]:
+    """Obtiene todos los mantenimientos de los vehículos del usuario.
+
+    Filtra por usuario a través de la relación Vehicle → Maintenance.
+    """
+    result = await db.execute(
+        select(Maintenance)
+        .join(Vehicle, Maintenance.vehicle_id == Vehicle.id)
+        .where(Vehicle.user_id == user_id)
+        .order_by(Maintenance.date.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    return list(result.scalars().all())

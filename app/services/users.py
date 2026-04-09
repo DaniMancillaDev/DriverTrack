@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
 from app.schemas.user import UserUpdate
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, verify_password
 
 
 async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
@@ -41,6 +41,56 @@ async def update_user(db: AsyncSession, user_id: int, user_data: UserUpdate) -> 
     for key, value in update_data.items():
         setattr(db_user, key, value)
 
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
+
+async def update_profile(db: AsyncSession, user_id: int, full_name: str) -> Optional[User]:
+    """Actualiza solo el nombre del usuario autenticado."""
+    db_user = await get_user(db, user_id)
+    if not db_user:
+        return None
+
+    db_user.full_name = full_name
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
+
+async def change_password(
+    db: AsyncSession,
+    user_id: int,
+    current_password: str,
+    new_password: str,
+) -> tuple[bool, str]:
+    """Cambia la contraseña del usuario verificando la actual.
+
+    Returns:
+        Tuple (success: bool, message: str)
+    """
+    db_user = await get_user(db, user_id)
+    if not db_user:
+        return False, "Usuario no encontrado"
+
+    if not verify_password(current_password, db_user.hashed_password):
+        return False, "Contraseña actual incorrecta"
+
+    db_user.hashed_password = get_password_hash(new_password)
+    db.add(db_user)
+    await db.commit()
+    return True, "Contraseña actualizada exitosamente"
+
+
+async def update_photo_url(db: AsyncSession, user_id: int, photo_url: str | None) -> Optional[User]:
+    """Actualiza la URL de la foto de perfil del usuario."""
+    db_user = await get_user(db, user_id)
+    if not db_user:
+        return None
+
+    db_user.photo_url = photo_url
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)

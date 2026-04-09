@@ -1,8 +1,13 @@
-"""Router REST de notificaciones."""
+"""Router REST de notificaciones.
 
-from fastapi import APIRouter, Depends, status
+Todos los endpoints requieren autenticación JWT.
+Las notificaciones siempre se filtran por el usuario autenticado.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import CurrentUser
 from app.database import get_db
 from app.schemas.notification import (
     NotificationCreate,
@@ -23,41 +28,51 @@ router = APIRouter(prefix="/notifications", tags=["Notificaciones"])
 )
 async def create_notification(
     notification_data: NotificationCreate,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Crea una nueva notificación y la envía por WebSocket si el usuario está conectado."""
+    """Crea una nueva notificación para el usuario autenticado.
+
+    El user_id de la notificación siempre se toma del token JWT.
+    No se puede crear notificaciones para otros usuarios.
+    """
+    # Forzar que la notificación pertenezca al usuario autenticado
+    notification_data.user_id = current_user.id
+
     notification = await notification_service.create_notification(
         db=db, notification_data=notification_data
     )
-    
+
     # Broadcast por WebSocket al usuario conectado
     response = NotificationResponse.model_validate(notification)
     await manager.send_to_user(
-        notification_data.user_id,
+        current_user.id,
         response.model_dump_json(),
     )
-    
+
     return notification
 
 
 @router.get(
     "",
     response_model=PaginatedNotificationsResponse,
-    summary="Listar notificaciones de un usuario",
+    summary="Listar mis notificaciones",
 )
 async def get_notifications(
-    user_id: int,
+    current_user: CurrentUser,
     skip: int = 0,
     limit: int = 20,
     db: AsyncSession = Depends(get_db),
 ):
-    """Obtiene la lista paginada de notificaciones de un usuario."""
+    """Obtiene la lista paginada de notificaciones del usuario autenticado."""
     items = await notification_service.get_user_notifications(
-        db=db, user_id=user_id, skip=skip, limit=limit
+        db=db, user_id=current_user.id, skip=skip, limit=limit
     )
-    total = await notification_service.get_total_count(db=db, user_id=user_id)
-    unread_count = await notification_service.get_unread_count(db=db, user_id=user_id)
-    
+    total = await notification_service.get_total_count(db=db, user_id=current_user.id)
+    unread_count = await notification_service.get_unread_count(
+        db=db, user_id=current_user.id
+    )
+
     return PaginatedNotificationsResponse(
         items=items,
         total=total,
@@ -73,37 +88,56 @@ async def get_notifications(
 )
 async def mark_as_read(
     notification_id: int,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Marca una notificación específica como leída."""
-    return await notification_service.mark_as_read(
+    """Marca una notificación específica como leída.
+
+    Verifica que la notificación pertenece al usuario autenticado.
+    """
+    notification = await notification_service.get_notification_by_id(
         db=db, notification_id=notification_id
     )
+    if notification is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notificación no encontrada",
+        )
+    if notification.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado para modificar esta notificación",
+        )
+    return await notification_service.mark_as_read(db=db, notification_id=notification_id)
 
 
 @router.patch(
     "/read-all",
-    summary="Marcar todas como leídas",
+    summary="Marcar todas las notificaciones como leídas",
 )
 async def mark_all_as_read(
-    user_id: int,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Marca todas las notificaciones de un usuario como leídas."""
-    count = await notification_service.mark_all_as_read(db=db, user_id=user_id)
+    """Marca todas las notificaciones del usuario autenticado como leídas."""
+    count = await notification_service.mark_all_as_read(
+        db=db, user_id=current_user.id
+    )
     return {"message": f"{count} notificaciones marcadas como leídas"}
 
 
 @router.get(
     "/unread-count",
-    summary="Obtener contador de no leídas",
+    summary="Contador de notificaciones no leídas",
 )
 async def get_unread_count(
-    user_id: int,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Obtiene la cantidad de notificaciones no leídas de un usuario."""
-    count = await notification_service.get_unread_count(db=db, user_id=user_id)
+    """Obtiene la cantidad de notificaciones no leídas del usuario autenticado."""
+    count = await notification_service.get_unread_count(
+        db=db, user_id=current_user.id
+    )
     return {"unread_count": count}
 
 
@@ -114,9 +148,21 @@ async def get_unread_count(
 )
 async def delete_notification(
     notification_id: int,
+    current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Elimina una notificación."""
-    await notification_service.delete_notification(
+    """Elimina una notificación verificando la propiedad."""
+    notification = await notification_service.get_notification_by_id(
         db=db, notification_id=notification_id
     )
+    if notification is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notificación no encontrada",
+        )
+    if notification.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado para eliminar esta notificación",
+        )
+    await notification_service.delete_notification(db=db, notification_id=notification_id)

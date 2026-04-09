@@ -5,6 +5,7 @@ para autenticación y perfil del usuario.
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -24,6 +25,9 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    photo_url: Mapped[Optional[str]] = mapped_column(
+        String(512), nullable=True, default=None
+    )
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc)
     )

@@ -1,6 +1,8 @@
 """Router para la gestión de usuarios.
 
-Expone endpoints CRUD para perfiles de usuario.
+Todos los endpoints están protegidos con autenticación JWT.
+Los endpoints de detalle/actualización/eliminación verifican
+que el usuario autenticado solo puede operar sobre su propio perfil.
 """
 
 from typing import List
@@ -8,25 +10,156 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import CurrentUser, get_current_user
 from app.database import get_db
-from app.schemas.user import UserResponse, UserUpdate
+from app.models.user import User
+from app.schemas.user import (
+    ChangePasswordRequest,
+    PhotoConfirmRequest,
+    PresignedUrlResponse,
+    ProfileUpdateRequest,
+    UserResponse,
+    UserUpdate,
+)
 from app.services import users as users_service
+from app.services import storage as storage_service
 
 router = APIRouter(prefix="/users", tags=["Usuarios"])
 
 
-@router.get("/", response_model=List[UserResponse], summary="Listar usuarios")
-async def read_users(
-    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
+# ─── Perfil del usuario autenticado (/me) ────────────────────
+
+
+@router.get("/me", response_model=UserResponse, summary="Mi perfil")
+async def read_current_user(current_user: CurrentUser):
+    """Obtiene el perfil del usuario autenticado."""
+    return current_user
+
+
+@router.put("/me", response_model=UserResponse, summary="Actualizar mi perfil")
+async def update_current_user(
+    data: ProfileUpdateRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Obtiene una lista paginada de usuarios asíncronamente."""
-    users = await users_service.get_users(db, skip=skip, limit=limit)
-    return users
+    """Actualiza el nombre del usuario autenticado.
+
+    Solo permite cambiar full_name. Para cambiar email o contraseña
+    usar los endpoints específicos.
+    """
+    updated = await users_service.update_profile(
+        db, user_id=current_user.id, full_name=data.full_name
+    )
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
+    return updated
+
+
+@router.post(
+    "/me/change-password",
+    status_code=status.HTTP_200_OK,
+    summary="Cambiar contraseña",
+)
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Cambia la contraseña del usuario autenticado.
+
+    Requiere la contraseña actual para confirmar la identidad.
+    """
+    success, message = await users_service.change_password(
+        db,
+        user_id=current_user.id,
+        current_password=data.current_password,
+        new_password=data.new_password,
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=message,
+        )
+    return {"message": "Contraseña actualizada exitosamente"}
+
+
+@router.post(
+    "/me/photo/presigned-url",
+    response_model=PresignedUrlResponse,
+    summary="Obtener URL pre-firmada para subir foto de perfil",
+)
+async def get_photo_upload_url(current_user: CurrentUser):
+    """Genera una URL pre-firmada para subir la foto de perfil a MinIO.
+
+    La URL es válida por 1 hora. Después de subir la imagen,
+    llamar a PUT /me/photo/confirm con el object_key recibido.
+    """
+    result = storage_service.generate_presigned_upload_url(
+        user_id=current_user.id,
+        filename="avatar.jpg",
+    )
+    return PresignedUrlResponse(**result)
+
+
+@router.put(
+    "/me/photo/confirm",
+    response_model=UserResponse,
+    summary="Confirmar subida de foto de perfil",
+)
+async def confirm_photo_upload(
+    data: PhotoConfirmRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Después de subir la foto via pre-signed URL, confirma el upload.
+
+    El cliente envía el object_key en el body (no como query param).
+    Se valida que el object_key pertenece al usuario autenticado.
+    """
+    from app.schemas.user import PhotoConfirmRequest as _PhotoConfirmRequest
+
+    # Validar que el object_key pertenece a este usuario
+    if not data.object_key.startswith(f"avatars/{current_user.id}/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="object_key inválido para este usuario",
+        )
+
+    # Generar URL de acceso (7 días)
+    photo_url = storage_service.generate_presigned_get_url(data.object_key)
+
+    updated = await users_service.update_photo_url(
+        db, user_id=current_user.id, photo_url=photo_url
+    )
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
+    return updated
+
+
+# ─── Endpoints con verificación de identidad ─────────────────
 
 
 @router.get("/{user_id}", response_model=UserResponse, summary="Detalle de usuario")
-async def read_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    """Obtiene el perfil de un usuario asíncronamente."""
+async def read_user(
+    user_id: int,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Obtiene el perfil de un usuario.
+
+    Un usuario solo puede ver su propio perfil.
+    """
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado para ver este perfil",
+        )
     db_user = await users_service.get_user(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(
@@ -36,8 +169,21 @@ async def read_user(user_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{user_id}", response_model=UserResponse, summary="Actualizar usuario")
-async def update_user(user_id: int, user_data: UserUpdate, db: AsyncSession = Depends(get_db)):
-    """Actualiza la información del usuario asíncronamente."""
+async def update_user(
+    user_id: int,
+    user_data: UserUpdate,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Actualiza la información de un usuario.
+
+    Un usuario solo puede modificar su propio perfil.
+    """
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado para modificar este perfil",
+        )
     db_user = await users_service.update_user(db, user_id=user_id, user_data=user_data)
     if db_user is None:
         raise HTTPException(
@@ -49,8 +195,20 @@ async def update_user(user_id: int, user_data: UserUpdate, db: AsyncSession = De
 @router.delete(
     "/{user_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Eliminar usuario"
 )
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    """Elimina una cuenta de usuario asíncronamente."""
+async def delete_user(
+    user_id: int,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Elimina una cuenta de usuario.
+
+    Un usuario solo puede eliminar su propia cuenta.
+    """
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado para eliminar este perfil",
+        )
     success = await users_service.delete_user(db, user_id=user_id)
     if not success:
         raise HTTPException(
