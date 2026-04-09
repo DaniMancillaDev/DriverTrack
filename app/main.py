@@ -71,18 +71,36 @@ app = FastAPI(
 
 # ─── Middlewares ──────────────────────────────────────────────
 
-# 1. Security Headers (antes que CORS para que aplique a todas las respuestas)
+# IMPORTANTE: El orden de add_middleware en Starlette es LIFO (último en añadirse
+# se ejecuta primero). Por eso CORS debe añadirse DESPUÉS de SecurityHeaders
+# para que CORS procese la petición antes (y pueda responder los OPTIONS directamente).
+
+# 1. Security Headers — se ejecutará DESPUÉS que CORS en el pipeline
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 2. CORS — Orígenes explícitos desde configuración, nunca wildcard en prod
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.allowed_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
-    expose_headers=["X-Total-Count"],
-)
+# 2. CORS — se ejecutará PRIMERO (responde OPTIONS antes de llegar a los handlers)
+#
+# En modo DEBUG: wildcard para permitir cualquier origen de desarrollo.
+#   ⚠️ allow_credentials debe ser False con allow_origins=["*"].
+# En PRODUCCIÓN: orígenes explícitos con credenciales.
+if settings.debug:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],           # Cualquier origen en dev
+        allow_credentials=False,       # No se puede usar True con wildcard
+        allow_methods=["*"],
+        allow_headers=["*"],           # Sin restricciones en dev
+        expose_headers=["X-Total-Count"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.allowed_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With"],
+        expose_headers=["X-Total-Count"],
+    )
 
 
 # ─── Routers ──────────────────────────────────────────────────

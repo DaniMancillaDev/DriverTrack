@@ -4,12 +4,12 @@ Endpoints públicos para registro e inicio de sesión.
 Los tokens generados siempre usan sub=str(user_id).
 """
 
-from fastapi import APIRouter, Depends, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token
-from app.core.deps import CurrentUser, get_current_user
+from app.core.deps import CurrentUser
 from app.database import get_db
 from app.schemas.user import LoginRequest, UserCreate, UserResponse, TokenResponse
 from app.services import auth as auth_service
@@ -70,3 +70,25 @@ async def verify_token(current_user: CurrentUser):
     al arrancar la app sin redirigir al login innecesariamente.
     """
     return current_user
+
+
+@router.post(
+    "/token",
+    include_in_schema=False,  # No mostrar en docs — es solo para Swagger Authorize
+)
+async def oauth2_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+):
+    """Endpoint OAuth2 exclusivo para el botón Authorize de Swagger UI.
+
+    Acepta application/x-www-form-urlencoded con 'username' y 'password'.
+    El 'username' de OAuth2 se mapea al email de la app.
+
+    ⚠️ NO usar desde Flutter — usar /auth/login con JSON.
+    """
+    credentials = LoginRequest(email=form_data.username, password=form_data.password)
+    user = await auth_service.authenticate_user(db=db, credentials=credentials)
+    access_token = create_access_token(data={"sub": str(user.id)})
+    # Swagger espera exactamente este formato
+    return {"access_token": access_token, "token_type": "bearer"}

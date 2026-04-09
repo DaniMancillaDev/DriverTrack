@@ -53,13 +53,20 @@ def create_refresh_token(data: dict) -> str:
 def decode_access_token(token: str) -> dict | None:
     """Decodifica y valida un JWT de acceso.
 
+    Acepta tokens que:
+    - Tienen type='access' (tokens nuevos generados por este sistema)
+    - No tienen claim 'type' (tokens legacy, compatibilidad hacia atrás)
+
+    Rechaza tokens que explícitamente tienen type='refresh'.
+
     Returns:
-        El payload si el token es válido y es de tipo 'access', None si no.
+        El payload si el token es válido, None si no.
     """
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
-        # Verificar que es un access token, no un refresh token
-        if payload.get("type") != "access":
+        # Solo rechazar si el type está presente y es explícitamente 'refresh'
+        # Los tokens legacy (sin type) son aceptados durante la migración
+        if payload.get("type") == "refresh":
             return None
         return payload
     except PyJWTError:

@@ -19,6 +19,16 @@ async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
     return result.scalars().first()
 
 
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+    """Obtiene un usuario por su email (para compatibilidad con tokens legacy).
+
+    Usado en get_current_user cuando el claim 'sub' del JWT contiene
+    un email en lugar de un user_id (formato anterior a la migración).
+    """
+    result = await db.execute(select(User).filter(User.email == email))
+    return result.scalars().first()
+
+
 async def get_users(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[User]:
     """Obtiene una lista de usuarios asíncronamente."""
     result = await db.execute(select(User).offset(skip).limit(limit))
