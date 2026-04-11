@@ -94,6 +94,6 @@ async def run_seeds(session: AsyncSession) -> None:
 
     created = await seed_admin_user(session)
     if created:
-        print(f"  ✓ Admin created: {ADMIN_EMAIL} / {ADMIN_PASSWORD}")
+        print(f"  ✓ Admin created: {ADMIN_EMAIL}")
     else:
         print(f"  ✓ Admin already exists: {ADMIN_EMAIL}")

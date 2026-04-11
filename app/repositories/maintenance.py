@@ -1,4 +1,8 @@
-"""Repositorio específico para la entidad Maintenance."""
+"""Repositorio especializado para la gestión de la entidad Maintenance.
+
+Provee métodos para consultar el historial cronológico de servicios asociados
+a un vehículo, asegurando una ordenación descendente por fecha.
+"""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +15,10 @@ from app.schemas.maintenance import MaintenanceCreate, MaintenanceUpdate
 class MaintenanceRepository(
     BaseRepository[Maintenance, MaintenanceCreate, MaintenanceUpdate]
 ):
-    """Repositorio para gestionar Registros de Mantenimiento asíncronamente."""
+    """Capa de acceso a datos para registros de mantenimiento.
+
+    Optimiza la recuperación de datos históricos con paginación y ordenación.
+    """
 
     async def get_by_vehicle(
         self, db: AsyncSession, *, vehicle_id: int, skip: int = 0, limit: int = 50

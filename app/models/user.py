@@ -1,7 +1,8 @@
-"""Modelo de usuario.
+"""Modelo de datos para Usuarios.
 
-Define la tabla 'users' con los campos necesarios
-para autenticación y perfil del usuario.
+Representa la tabla 'users' en la base de datos, almacenando la
+información de identidad, credenciales hasheadas, preferencias de
+notificación y relaciones con vehículos y alertas.
 """
 
 from datetime import datetime, timezone
@@ -14,7 +15,11 @@ from app.database import Base
 
 
 class User(Base):
-    """Tabla de usuarios registrados en la plataforma."""
+    """Entidad que representa a un usuario físico en la plataforma.
+
+    Gestiona la autenticación mediante email/hash y almacena las preferencias
+    granulares de notificaciones para el motor de reglas.
+    """
 
     __tablename__ = "users"
 

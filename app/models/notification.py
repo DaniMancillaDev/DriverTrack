@@ -1,7 +1,8 @@
-"""Modelo de notificación.
+"""Modelo de datos para Notificaciones.
 
-Define la tabla 'notifications' para almacenar
-notificaciones internas de la aplicación por usuario.
+Representa la tabla 'notifications', utilizada para almacenar el historial de
+alertas generadas por el sistema o por interacciones directas. Soporta
+diferentes niveles de severidad (info, warning, error).
 """
 
 from datetime import datetime, timezone
@@ -23,7 +24,11 @@ class NotificationType(str, enum.Enum):
 
 
 class Notification(Base):
-    """Tabla de notificaciones persistentes por usuario."""
+    """Entidad que representa un aviso enviado a un usuario específico.
+
+    Incluye el estado de lectura y la severidad para su correcta visualización
+    en el centro de notificaciones de la aplicación.
+    """
 
     __tablename__ = "notifications"
 

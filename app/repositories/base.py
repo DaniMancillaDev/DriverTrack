@@ -1,14 +1,11 @@
-"""Repositorio base para acceso a datos genérico.
+"""Repositorio base para el acceso a datos de forma genérica.
 
-Proporciona operaciones CRUD estándar usando SQLAlchemy.
-De este modo, los servicios no necesitan conocer SQLAlchemy.
+Este módulo implementa el patrón Repository, centralizando las operaciones CRUD
+estándar mediante SQLAlchemy asíncrono. Permite desacoplar la lógica de
+acceso a datos de los servicios de negocio.
 """
 
-from typing import Any, Generic, Type, TypeVar
-
-from pydantic import BaseModel
 from typing import Any, Generic, List, Type, TypeVar
-
 from pydantic import BaseModel
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,9 +19,10 @@ UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 
 
 class BaseRepository(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
-    """Clase base genérica (CRUD) para operaciones de base de datos asíncronas.
-    
-    Implementa el Patrón Repositorio con soporte para AsyncSession.
+    """Clase base genérica que encapsula la lógica asíncrona de base de datos.
+
+    Proporciona métodos reutilizables para obtener (GET), listar (ALL),
+    crear (CREATE), actualizar (UPDATE) y eliminar (REMOVE) registros.
     """
 
     def __init__(self, model: Type[ModelType]):

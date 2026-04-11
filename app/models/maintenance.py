@@ -1,7 +1,8 @@
-"""Modelo de mantenimiento.
+"""Modelo de datos para Mantenimientos.
 
-Define la tabla 'maintenances' para registrar
-el historial de mantenimientos de cada vehículo.
+Define la estructura de la tabla 'maintenances', la cual registra el
+historial de servicios técnicos, costos y kilometraje de cada intervención
+realizada sobre los vehículos.
 """
 
 from datetime import date, datetime, timezone
@@ -14,7 +15,11 @@ from app.database import Base
 
 
 class Maintenance(Base):
-    """Tabla de registros de mantenimiento de vehículos."""
+    """Representa una intervención técnica o servicio realizado en un vehículo.
+
+    Almacena datos históricos que permiten al usuario rastrear el gasto y el
+    estado mecánico a lo largo del tiempo.
+    """
 
     __tablename__ = "maintenances"
 

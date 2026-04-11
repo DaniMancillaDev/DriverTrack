@@ -1,7 +1,8 @@
-"""Servicios para la gestión de usuarios.
+"""Servicios para la gestión de perfiles de usuario.
 
-Contiene la lógica de negocio y las operaciones de base de datos
-(CRUD) para los perfiles de usuario.
+Contiene la lógica de negocio para la administración de cuentas,
+actualización de perfiles, gestión de preferencias de notificación
+y flujos de seguridad como el cambio de contraseñas.
 """
 
 from typing import List, Optional
@@ -15,7 +16,10 @@ from app.core.security import get_password_hash, verify_password
 
 
 async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
-    """Obtiene un usuario por su ID asíncronamente."""
+    """Obtiene un registro de usuario por su clave primaria.
+
+    Retorna el modelo SQLAlchemy completo o None si no se encuentra.
+    """
     result = await db.execute(select(User).filter(User.id == user_id))
     return result.scalars().first()
 
@@ -102,10 +106,12 @@ async def change_password(
     current_password: str,
     new_password: str,
 ) -> tuple[bool, str]:
-    """Cambia la contraseña del usuario verificando la actual.
+    """Cambia la contraseña de un usuario validando su identidad.
 
-    Returns:
-        Tuple (success: bool, message: str)
+    Proceso:
+    1. Verifica que la contraseña actual sea correcta.
+    2. Hashea la nueva contraseña.
+    3. Registra la fecha del cambio para invalidar tokens si es necesario.
     """
     db_user = await get_user(db, user_id)
     if not db_user:

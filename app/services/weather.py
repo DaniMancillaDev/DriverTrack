@@ -1,8 +1,8 @@
-"""Servicio proxy para la API de OpenWeatherMap.
+"""Servicio integrador para la API de OpenWeatherMap.
 
-Centraliza las llamadas a OWM para que la API key
-nunca salga del servidor. Retorna el JSON crudo de OWM
-para mantener compatibilidad con el parseo del frontend.
+Actúa como un proxy seguro que encapsula la API Key del proveedor en el backend.
+Retorna las respuestas originales de OWM para mantener la compatibilidad con
+los modelos de datos del frontend.
 """
 
 import httpx
@@ -48,7 +48,20 @@ async def fetch_weather_by_city(city_name: str) -> dict:
 
 
 async def _call_owm(params: dict) -> dict:
-    """Ejecuta la petición HTTP a OWM y maneja errores."""
+    """Ejecuta la petición HTTP hacia OpenWeatherMap y gestiona errores comunes.
+
+    Nota de Seguridad: Los errores 401 de OWM (clave inválida) se transforman en
+    502 Bad Gateway. Esto evita que el cliente confunda un error de configuración
+    del servidor con un fallo de su propia sesión de usuario.
+    """
+    # Guard: si la API key no está configurada, fallar rápido con 502
+    api_key = params.get("appid", "")
+    if not api_key or api_key.startswith("<"):
+        raise WeatherServiceError(
+            "Servicio de clima no configurado (API key ausente en el servidor)",
+            status_code=502,
+        )
+
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             response = await client.get(f"{_OWM_BASE}/weather", params=params)
@@ -59,9 +72,11 @@ async def _call_owm(params: dict) -> dict:
         return response.json()
 
     if response.status_code == 401:
+        # OWM rechazó la API key — problema de configuración del servidor,
+        # no un error de autenticación del usuario. Usar 502.
         raise WeatherServiceError(
-            "API key de OpenWeatherMap inválida o expirada",
-            status_code=401,
+            "API key de OpenWeatherMap inválida o expirada (configurar en el servidor)",
+            status_code=502,
         )
 
     if response.status_code == 404:

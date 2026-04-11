@@ -1,4 +1,9 @@
-"""Servicios para la gestión de vehículos."""
+"""Servicios de lógica de negocio para la gestión de vehículos.
+
+Este módulo orquesta las operaciones CRUD sobre vehículos, aplicando
+validaciones de integridad como la unicidad de las placas y la existencia
+de los usuarios propietarios.
+"""
 
 from typing import Optional
 
@@ -19,7 +24,12 @@ async def get_vehicle_types(db: AsyncSession) -> list[VehicleType]:
 
 
 async def create_vehicle(db: AsyncSession, vehicle_data: VehicleCreate) -> Vehicle:
-    """Registra un nuevo vehículo asegurando validaciones asíncronamente."""
+    """Registra un nuevo vehículo aplicando validaciones de integridad.
+
+    Verifica:
+    1. Que el usuario propietario exista en el sistema.
+    2. Que la placa (matrícula) no esté registrada previamente.
+    """
     # Verificamos si existe el usuario
     user = await user_repo.get(db, id=vehicle_data.user_id)
     if not user:
@@ -80,6 +90,10 @@ async def update_vehicle(
 
 
 async def delete_vehicle(db: AsyncSession, vehicle_id: int) -> None:
-    """Elimina un vehículo asíncronamente."""
+    """Elimina permanentemente un registro de vehículo.
+
+    Este proceso también debería considerar (según la política de cascada)
+    la eliminación de mantenimientos y fotos asociadas.
+    """
     vehicle = await get_vehicle_by_id(db, vehicle_id)
     await vehicle_repo.remove(db, id=vehicle.id)

@@ -1,11 +1,11 @@
 """Router de clima — proxy seguro a OpenWeatherMap.
 
-Todos los endpoints requieren autenticación.
-Retorna el JSON crudo de OWM para que el frontend
-pueda parsearlo con su WeatherModel.fromOwmJson() existente.
+Este módulo actúa como un intermediario (proxy) para las peticiones de clima.
+Permite que el frontend consulte datos meteorológicos sin necesidad de
+almacenar la API Key de OpenWeatherMap, centralizando la seguridad en el backend.
 """
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status, Path
 
 from app.core.deps import CurrentUser
 from app.services.weather import (
@@ -47,8 +47,8 @@ async def get_current_weather(
     response_description="JSON crudo de OpenWeatherMap (Current Weather)",
 )
 async def get_weather_by_city(
-    city_name: str,
     _current_user: CurrentUser,
+    city_name: str = Path(..., min_length=1, max_length=100, pattern=r"^[a-zA-Z\s\-,]+$"),
 ):
     """Obtiene el clima actual para la ciudad especificada.
 

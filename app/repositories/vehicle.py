@@ -1,4 +1,8 @@
-"""Repositorio específico para la entidad Vehicle."""
+"""Repositorio especializado para la gestión de la entidad Vehicle.
+
+Incluye la lógica de carga ansiosa (selectinload) de los tipos de vehículos
+para optimizar las respuestas y evitar problemas de N+1 o lazy loading.
+"""
 
 from typing import Optional
 
@@ -12,7 +16,11 @@ from app.schemas.vehicle import VehicleCreate, VehicleUpdate
 
 
 class VehicleRepository(BaseRepository[Vehicle, VehicleCreate, VehicleUpdate]):
-    """Repositorio para gestionar Vehículos asíncronamente."""
+    """Capa de acceso a datos para vehículos.
+
+    Gestiona la persistencia y recuperación de vehículos, asegurando que los
+    detalles del tipo de vehículo estén siempre disponibles.
+    """
 
     async def create(self, db: AsyncSession, *, obj_in: VehicleCreate) -> Vehicle:
         """Crea un vehículo y carga su tipo para la respuesta."""

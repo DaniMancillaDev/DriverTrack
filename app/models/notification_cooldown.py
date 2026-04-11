@@ -1,8 +1,8 @@
-"""Modelo de cooldown para notificaciones automáticas.
+"""Modelo de control de frecuencia (Cooldown) para notificaciones automáticas.
 
-Tabla auxiliar que registra cuándo se envió la última notificación
-de cada regla para cada vehículo. Previene el spam de notificaciones
-duplicadas al verificar si ya se envió recientemente.
+Esta tabla actúa como un registro de auditoría temporal para evitar que el sistema
+envíe múltiples avisos duplicados sobre el mismo evento en un periodo corto
+de tiempo (anti-spam).
 """
 
 from datetime import datetime, timezone
@@ -14,11 +14,11 @@ from app.database import Base
 
 
 class NotificationCooldown(Base):
-    """Registro de cooldown para evitar notificaciones duplicadas.
+    """Registro de control de tiempo para una regla específica y un vehículo.
 
-    Cada fila dice: "Para el vehículo X, la regla Y se disparó
-    por última vez en Z". El scheduler consulta esta tabla con
-    LEFT JOIN para filtrar vehículos que ya recibieron la alerta.
+    El planificador consulta esta tabla mediante un LEFT JOIN para identificar
+    qué vehículos están 'en periodo de enfriamiento' y saltarlos en el ciclo
+    actual de notificaciones.
     """
 
     __tablename__ = "notification_cooldowns"

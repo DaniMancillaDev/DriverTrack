@@ -1,10 +1,8 @@
-"""Dependencias de autenticación para FastAPI.
+"""Dependencias compartidas para FastAPI.
 
-Módulo ÚNICO de dependencias de auth. Usa security.py como
-fuente exclusiva de lógica JWT.
-
-Todos los routers deben importar get_current_user desde aquí.
-NO importar desde dependencies.py (archivo legacy eliminado).
+Este módulo centraliza la lógica de inyección de dependencias para la
+autenticación de usuarios y la obtención de sesiones de base de datos.
+Asegura un flujo uniforme de validación de identidad en toda la aplicación.
 """
 
 from typing import Annotated
@@ -27,15 +25,12 @@ async def get_current_user(
     token: Annotated[str | None, Depends(oauth2_scheme)],
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Valida el Bearer token JWT y devuelve el usuario autenticado.
+    """Valida el token JWT y extrae al usuario actual de la base de datos.
 
-    Requiere token con:
-    - type='access' (obligatorio, sin excepciones)
-    - sub=str(user_id) (entero como string)
-
-    Raises:
-        HTTPException 401: token ausente, inválido, expirado o user inexistente.
-        HTTPException 403: cuenta desactivada.
+    Lógica de Verificación:
+    1. Decodifica el token usando la llave secreta.
+    2. Valida que sea de tipo 'access'.
+    3. Recupera al usuario y verifica que esté activo.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

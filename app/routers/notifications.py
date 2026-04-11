@@ -1,10 +1,12 @@
 """Router REST de notificaciones.
 
-Todos los endpoints requieren autenticación JWT.
-Las notificaciones siempre se filtran por el usuario autenticado.
+Este módulo gestiona la persistencia de las notificaciones, permitiendo
+consultar el historial, marcar avisos como leídos y eliminar registros.
+Las notificaciones se generan tanto por acciones del usuario como por el
+sistema automático de recordatorios.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import CurrentUser
@@ -61,8 +63,8 @@ async def create_notification(
 )
 async def get_notifications(
     current_user: CurrentUser,
-    skip: int = 0,
-    limit: int = 20,
+    skip: int = Query(0, ge=0, description="Registros a saltar"),
+    limit: int = Query(20, ge=1, le=100, description="Límite máximo de resultados"),
     db: AsyncSession = Depends(get_db),
 ):
     """Obtiene la lista paginada de notificaciones del usuario autenticado."""
@@ -177,12 +179,19 @@ async def check_now(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Ejecuta manualmente el checker de reglas de notificación.
+    """Ejecuta el sistema de reglas de notificación de forma manual.
 
-    Útil para testing y desarrollo. Ejecuta todas las reglas
-    para todos los usuarios (no solo el actual).
-    Requiere autenticación JWT.
+    Analiza el estado de los vehículos (kilometraje, fechas) y genera
+    notificaciones si se cumplen las condiciones de mantenimiento.
+    Solo accesible por administradores para propósitos de mantenimiento.
     """
+    from app.core.seeds import ADMIN_EMAIL
+    if current_user.email != ADMIN_EMAIL:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo el administrador puede ejecutar esta acción",
+        )
+
     count = await run_all_checks(db)
     return {
         "message": f"{count} notificaciones generadas",

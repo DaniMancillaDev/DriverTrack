@@ -1,4 +1,8 @@
-"""Modelo para tokens de reseteo de contraseña (OTPs)."""
+"""Modelo de datos para la recuperación de contraseñas (OTP).
+
+Gestiona los códigos de un solo uso (One-Time Password) enviados por correo
+para permitir el restablecimiento seguro de las credenciales de los usuarios.
+"""
 
 from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, DateTime, Integer, ForeignKey
@@ -7,7 +11,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 class PasswordResetToken(Base):
-    """Tabla de tokens OTP para reseteo de contraseñas seguros."""
+    """Token de seguridad temporal para el flujo de 'Olvidé mi contraseña'.
+
+    Almacena el código de 6 dígitos, su fecha de expiración y el estado
+    de consumo para evitar la reutilización de tokens.
+    """
 
     __tablename__ = "password_reset_tokens"
 

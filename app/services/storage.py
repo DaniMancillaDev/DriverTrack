@@ -1,7 +1,10 @@
-"""Servicio de almacenamiento de archivos usando MinIO (S3-compatible).
+"""Servicio de almacenamiento de archivos mediante MinIO (S3-compatible).
 
-Provee funciones para generar URLs pre-firmadas para upload/download
-de fotos de perfil.
+Este módulo gestiona la interacción con el servidor de objetos, encargándose de:
+1. Asegurar la existencia de buckets.
+2. Generar URLs pre-firmadas para que los clientes suban archivos de forma segura.
+3. Generar URLs de acceso temporal para visualizar imágenes.
+4. Eliminar objetos obsoletos.
 """
 
 import uuid
@@ -13,7 +16,11 @@ from app.core.config import settings
 
 
 def _get_s3_client():
-    """Crea un cliente S3 configurado para MinIO."""
+    """Configura e instancia el cliente boto3 para conexión con MinIO.
+
+    Utiliza los parámetros de configuración definidos en el entorno
+    (endpoint, keys, seguridad).
+    """
     endpoint_url = (
         f"{'https' if settings.minio_secure else 'http'}://{settings.minio_endpoint}"
     )

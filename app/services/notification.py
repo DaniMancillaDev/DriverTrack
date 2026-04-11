@@ -1,4 +1,8 @@
-"""Servicios para gestión de notificaciones."""
+"""Servicios para la gestión y persistencia de notificaciones.
+
+Este módulo encapsula las operaciones de base de datos para las alertas
+del sistema, permitiendo su creación, consulta y actualización de estado (leído).
+"""
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,7 +70,7 @@ async def delete_notification(db: AsyncSession, notification_id: int) -> None:
 async def get_notification_by_id(
     db: AsyncSession, notification_id: int
 ) -> Notification:
-    """Obtiene una notificación por su ID."""
+    """Obtiene un registro de notificación por su identificador único."""
     notification = await notification_repo.get(db, notification_id)
     if not notification:
         raise HTTPException(

@@ -1,7 +1,8 @@
-"""Modelo de vehículo.
+"""Modelo de datos para Vehículos.
 
-Define la tabla 'vehicles' y el enum VehicleType
-para los tipos de vehículo permitidos (car/moto).
+Define la estructura de la tabla 'vehicles' y el catálogo de tipos
+de vehículos (vehicle_types). Almacena información crítica como el
+kilometraje actual y el límite configurado para alertas preventivas.
 """
 
 import enum
@@ -14,7 +15,11 @@ from app.database import Base
 
 
 class VehicleType(Base):
-    """Tabla de catálogo para tipos de vehículo (Car, Moto, etc)."""
+    """Catálogo maestro de categorías de vehículos.
+
+    Define los tipos disponibles (Slug, Etiqueta, Icono) que se muestran
+    en la interfaz de usuario para categorizar los vehículos.
+    """
 
     __tablename__ = "vehicle_types"
 
@@ -29,7 +34,11 @@ class VehicleType(Base):
 
 
 class Vehicle(Base):
-    """Tabla de vehículos asociados a un usuario."""
+    """Representa un vehículo individual perteneciente a un usuario.
+
+    Contiene los datos técnicos (marca, modelo, placa) y el estado de
+    uso actual (kilometraje). Es la entidad central para el sistema de alertas.
+    """
 
     __tablename__ = "vehicles"
 

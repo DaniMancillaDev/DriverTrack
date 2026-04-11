@@ -1,8 +1,8 @@
 """Router para la gestión de usuarios.
 
-Todos los endpoints están protegidos con autenticación JWT.
-Los endpoints de detalle/actualización/eliminación verifican
-que el usuario autenticado solo puede operar sobre su propio perfil.
+Proporciona endpoints para que los usuarios autenticados consulten y
+actualicen su información de perfil, cambien su contraseña y gestionen
+su foto de perfil mediante integración con MinIO.
 """
 
 from typing import List
@@ -66,7 +66,13 @@ async def update_preferences(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Actualiza los booleanos de preferencias de notificaciones."""
+    """Actualiza las preferencias de notificación del usuario.
+
+    Permite habilitar o deshabilitar de forma granular:
+    - Notificaciones Push globales.
+    - Recordatorios de servicios de mantenimiento.
+    - Alertas críticas del vehículo.
+    """
     updated = await users_service.update_preferences(
         db,
         user_id=current_user.id,
@@ -116,10 +122,12 @@ async def change_password(
     summary="Obtener URL pre-firmada para subir foto de perfil",
 )
 async def get_photo_upload_url(current_user: CurrentUser):
-    """Genera una URL pre-firmada para subir la foto de perfil a MinIO.
+    """Genera una URL pre-firmada para subir la foto de perfil.
 
-    La URL es válida por 1 hora. Después de subir la imagen,
-    llamar a PUT /me/photo/confirm con el object_key recibido.
+    Este endpoint es el primer paso para cambiar la foto:
+    1. El cliente solicita la URL pre-firmada.
+    2. El cliente sube la imagen (PUT) directamente al almacenamiento S3/MinIO.
+    3. El cliente confirma la subida llamando a `/me/photo/confirm`.
     """
     result = storage_service.generate_presigned_upload_url(
         user_id=current_user.id,
@@ -138,13 +146,11 @@ async def confirm_photo_upload(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Después de subir la foto via pre-signed URL, confirma el upload.
+    """Confirma que la foto ha sido subida correctamente al almacenamiento.
 
-    El cliente envía el object_key en el body (no como query param).
-    Se valida que el object_key pertenece al usuario autenticado.
+    Actualiza el campo `photo_url` en la base de datos con una URL de acceso
+    temporal (firmada) para el recurso recién subido.
     """
-    from app.schemas.user import PhotoConfirmRequest as _PhotoConfirmRequest
-
     # Validar que el object_key pertenece a este usuario
     if not data.object_key.startswith(f"avatars/{current_user.id}/"):
         raise HTTPException(

@@ -1,4 +1,9 @@
-"""Repositorio específico para la entidad Notification."""
+"""Repositorio especializado para la gestión de la entidad Notification.
+
+Extiende la funcionalidad base para permitir el conteo de avisos no leídos,
+la actualización masiva de estados de lectura y la consulta cronológica
+por usuario.
+"""
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +16,11 @@ from app.schemas.notification import NotificationCreate, NotificationUpdate
 class NotificationRepository(
     BaseRepository[Notification, NotificationCreate, NotificationUpdate]
 ):
-    """Repositorio para gestionar Notificaciones asíncronamente."""
+    """Capa de acceso a datos para notificaciones.
+
+    Gestiona la persistencia de alertas y provee métodos para la gestión de
+    bandeja de entrada (Inbox) del usuario.
+    """
 
     async def get_by_user(
         self,

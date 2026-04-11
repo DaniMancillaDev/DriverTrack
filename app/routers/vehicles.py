@@ -1,8 +1,8 @@
 """Router de vehículos.
 
-Todos los endpoints requieren autenticación JWT.
-Las operaciones sobre vehículos específicos verifican
-que el vehículo pertenece al usuario autenticado (anti-BOLA/IDOR).
+Este módulo permite a los usuarios gestionar su inventario de vehículos,
+incluyendo la creación, consulta, actualización y eliminación de registros,
+así como la gestión de fotografías de los mismos.
 """
 
 import re
@@ -44,23 +44,9 @@ class VehiclePhotoConfirmRequest(BaseModel):
         return v
 
 
-# ─── Helper de propiedad ──────────────────────────────────────
+from app.services.vehicle_access import assert_vehicle_owner
 
-
-async def _assert_vehicle_owner(vehicle_id: int, current_user_id: int, db):
-    """Verifica que el vehículo pertenece al usuario. Lanza 403 si no."""
-    vehicle = await vehicles_service.get_vehicle_by_id(db=db, vehicle_id=vehicle_id)
-    if vehicle is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Vehículo no encontrado",
-        )
-    if vehicle.user_id != current_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No autorizado para operar sobre este vehículo",
-        )
-    return vehicle
+# ─── Endpoints ────────────────────────────────────────────────
 
 
 # ─── Endpoints públicos (catálogo) ────────────────────────────
@@ -72,10 +58,11 @@ async def _assert_vehicle_owner(vehicle_id: int, current_user_id: int, db):
     summary="Listar tipos de vehículos disponibles",
 )
 async def get_vehicle_types(db: AsyncSession = Depends(get_db)):
-    """Obtiene el catálogo de tipos de vehículos.
+    """Obtiene el catálogo maestro de tipos de vehículos.
 
-    Este endpoint es público ya que es necesario para el formulario
-    de registro de vehículo antes de autenticarse.
+    Este catálogo es necesario para que el usuario pueda seleccionar una categoría
+    válida (Coche, Moto, Camioneta, etc.) al registrar un nuevo vehículo.
+    Es un endpoint público para facilitar el flujo de registro.
     """
     return await vehicles_service.get_vehicle_types(db=db)
 
@@ -130,7 +117,7 @@ async def get_vehicle(
 
     Solo el propietario puede ver su vehículo.
     """
-    vehicle = await _assert_vehicle_owner(vehicle_id, current_user.id, db)
+    vehicle = await assert_vehicle_owner(vehicle_id, current_user.id, db)
     return vehicle
 
 
@@ -146,7 +133,7 @@ async def update_vehicle(
     db: AsyncSession = Depends(get_db),
 ):
     """Actualiza un vehículo del usuario autenticado."""
-    await _assert_vehicle_owner(vehicle_id, current_user.id, db)
+    await assert_vehicle_owner(vehicle_id, current_user.id, db)
     return await vehicles_service.update_vehicle(
         db=db, vehicle_id=vehicle_id, vehicle_data=vehicle_data
     )
@@ -163,7 +150,7 @@ async def delete_vehicle(
     db: AsyncSession = Depends(get_db),
 ):
     """Elimina un vehículo del usuario autenticado."""
-    await _assert_vehicle_owner(vehicle_id, current_user.id, db)
+    await assert_vehicle_owner(vehicle_id, current_user.id, db)
     await vehicles_service.delete_vehicle(db=db, vehicle_id=vehicle_id)
 
 
@@ -177,12 +164,13 @@ async def get_vehicle_photo_presigned_url(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Genera una URL pre-firmada de MinIO para subir la foto del vehículo.
+    """Genera una URL pre-firmada para subir la foto de un vehículo.
 
-    Solo el propietario del vehículo puede generar esta URL.
-    La URL expira en 1 hora.
+    Solo el propietario del vehículo puede iniciar este proceso. La URL permite
+    la subida directa al almacenamiento de objetos (MinIO/S3) protegiendo
+    las claves de acceso del servidor.
     """
-    await _assert_vehicle_owner(vehicle_id, current_user.id, db)
+    await assert_vehicle_owner(vehicle_id, current_user.id, db)
     return storage_service.generate_presigned_upload_url_for_vehicle(vehicle_id)
 
 
@@ -197,13 +185,13 @@ async def confirm_vehicle_photo_upload(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Actualiza la URL de la foto en la BD tras una subida exitosa.
+    """Confirma la subida exitosa de la foto y actualiza el vehículo.
 
-    El object_key se valida para confirmar que:
-    1. Tiene el formato correcto (vehicles/{id}/{uuid}.jpg).
-    2. Pertenece a este vehicle_id específico.
+    Valida que el `object_key` proporcionado por el cliente tenga el formato
+    correcto y pertenezca realmente al vehículo en cuestión. Tras la validación,
+    actualiza la URL de imagen del vehículo en la base de datos.
     """
-    await _assert_vehicle_owner(vehicle_id, current_user.id, db)
+    await assert_vehicle_owner(vehicle_id, current_user.id, db)
 
     # Verificar que la key es para este vehículo
     if not body.object_key.startswith(f"vehicles/{vehicle_id}/"):

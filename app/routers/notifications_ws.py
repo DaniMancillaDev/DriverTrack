@@ -1,10 +1,9 @@
 """WebSocket endpoint para notificaciones en tiempo real.
 
-Implementa un ConnectionManager que mantiene conexiones
-activas por user_id y permite broadcast selectivo.
-
-La conexión WebSocket requiere autenticación JWT pasada como
-query parameter: ws://host/ws/notifications?token=<JWT>
+Este módulo implementa la comunicación bidireccional mediante WebSockets,
+permitiendo que el servidor envíe notificaciones instantáneas a los clientes
+conectados. Gestiona la autenticación inicial, el mantenimiento de las
+conexiones activas y la limpieza de recursos al desconectar.
 """
 
 import json
@@ -112,12 +111,11 @@ async def _authenticate_ws_token(token: str) -> int | None:
 @router.websocket("/ws/notifications")
 async def websocket_notifications(
     websocket: WebSocket,
-    token: str = Query(..., description="JWT de acceso para autenticación"),
 ):
     """Endpoint WebSocket para recibir notificaciones en tiempo real.
 
-    Autenticación: pasar el JWT como query parameter:
-        ws://host/ws/notifications?token=<JWT>
+    Autenticación se hace en el primer mensaje ENVIADO POR EL CLIENTE:
+        {"type": "auth", "token": "<JWT>"}
 
     Protocolo de mensajes del servidor:
         - {"type": "connection_established", "user_id": int}
@@ -125,18 +123,39 @@ async def websocket_notifications(
         - <NotificationResponse JSON> (nueva notificación)
 
     Protocolo de mensajes del cliente:
+        - {"type": "auth", "token": "<JWT>"} (obligatorio como primer mensaje)
         - {"type": "ping"} → recibe {"type": "pong"}
         - {"type": "acknowledge", "notification_id": int}
     """
-    # ── Autenticación antes de aceptar la conexión ──
+    await websocket.accept()
+
+    try:
+        # Esperar auth frame como primer mensaje (timeout de 5 segundos)
+        import asyncio
+        data = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+        auth_msg = json.loads(data)
+        
+        if auth_msg.get("type") != "auth" or not auth_msg.get("token"):
+            await websocket.close(code=4001, reason="Primer mensaje debe ser tipo 'auth'")
+            return
+            
+        token = auth_msg.get("token")
+    except (asyncio.TimeoutError, json.JSONDecodeError):
+        await websocket.close(code=4001, reason="Timeout esperando auth o formato inválido")
+        return
+
+    # ── Autenticación token obtenida ──
     user_id = await _authenticate_ws_token(token)
     if user_id is None:
         # Cerrar con código 4001 (application-level Unauthorized)
         await websocket.close(code=4001, reason="Token inválido o expirado")
-        logger.warning(f"WebSocket rechazado: token inválido")
+        logger.warning("WebSocket rechazado: token inválido")
         return
 
-    await manager.connect(websocket, user_id)
+    # Registrar conexión
+    manager.active_connections.setdefault(user_id, []).append(websocket)
+    logger.info(f"WebSocket conectado para user_id={user_id}. Total: {len(manager.active_connections[user_id])}")
+    
     try:
         # Enviar confirmación de conexión
         await websocket.send_text(json.dumps({

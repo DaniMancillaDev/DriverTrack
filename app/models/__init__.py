@@ -10,9 +10,9 @@ from app.models.maintenance import Maintenance
 from app.models.notification import Notification, NotificationType
 from app.models.notification_cooldown import NotificationCooldown
 from app.models.password_reset import PasswordResetToken
+from app.models.scheduler_lock import SchedulerLock
 
 __all__ = [
     "User", "Vehicle", "VehicleType", "Maintenance",
     "Notification", "NotificationType", "NotificationCooldown",
-    "PasswordResetToken",
 ]

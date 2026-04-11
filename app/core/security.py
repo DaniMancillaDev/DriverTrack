@@ -1,10 +1,8 @@
-"""Utilidades de seguridad: hashing de contraseñas y tokens JWT.
+"""Utilidades de seguridad: hashing de contraseñas y gestión de tokens JWT.
 
-Módulo ÚNICO de seguridad. Usa:
-  - bcrypt directamente para hashing de contraseñas.
-  - PyJWT para generación y verificación de tokens JWT.
-
-⚠️ No importar python-jose en ningún otro módulo.
+Este módulo centraliza la lógica criptográfica de la aplicación, utilizando
+bcrypt para el almacenamiento seguro de contraseñas y PyJWT para la
+emisión y validación de tokens de acceso y refresco.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -26,10 +24,10 @@ REFRESH_TOKEN_EXPIRE_DAYS = settings.refresh_token_expire_days
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    """Genera un JWT de acceso firmado con los datos proporcionados.
+    """Genera un JWT de acceso con una validez de corta duración.
 
-    El payload debe incluir 'sub' = str(user_id).
-    La expiración por defecto es ACCESS_TOKEN_EXPIRE_MINUTES desde settings.
+    Incluye un atributo 'type' con valor 'access' para prevenir el uso indebido
+    de tokens de refresco en endpoints protegidos.
     """
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
@@ -98,7 +96,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    """Genera un hash bcrypt a partir de una contraseña en texto plano."""
-    salt = bcrypt.gensalt()
+    """Transforma una contraseña en una cadena irreversible mediante bcrypt.
+
+    Utiliza un factor de costo de 12 (rounds) y un 'salt' aleatorio por defecto
+    para fortalecer la protección contra ataques de fuerza bruta o tablas arcoíris.
+    """
+    salt = bcrypt.gensalt(rounds=12)
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
     return hashed.decode("utf-8")

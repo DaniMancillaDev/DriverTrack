@@ -1,14 +1,15 @@
-"""Motor de reglas para notificaciones automáticas.
+"""Motor de reglas para notificaciones automáticas y preventivas.
 
-Evalúa condiciones basadas en datos de vehículos y mantenimientos
-para generar notificaciones proactivas. Usa consultas SQL agregadas
-(una por regla) en vez de iterar usuario por usuario.
+Este módulo analiza el estado de los vehículos (kilometraje y tiempo desde el
+último servicio) para generar alertas proactivas. Utiliza consultas SQL
+agregadas y optimizadas para evaluar las reglas en masa, evitando iteraciones
+ineficientes por cada usuario.
 
 Reglas implementadas:
-- mileage_warning: Kilometraje >= 90% del máximo
-- mileage_critical: Kilometraje >= 100% del máximo
-- maintenance_overdue: Último mantenimiento de una categoría > 180 días
-- no_maintenance: Vehículo sin mantenimiento registrado, creado hace >30 días
+- Advertencia de kilometraje (90%)
+- Alerta crítica de kilometraje (100%)
+- Mantenimiento vencido (>180 días)
+- Bienvenida/Primeros pasos (Vehículos nuevos sin registros)
 """
 
 import json
@@ -39,6 +40,14 @@ RULE_COOLDOWNS = {
     "no_maintenance": timedelta(hours=72),
 }
 
+# Títulos amigables para el usuario
+RULE_TITLES = {
+    "mileage_warning": "⚠️ Kilometraje próximo al límite",
+    "mileage_critical": "🚨 Kilometraje máximo alcanzado",
+    "maintenance_overdue": "🔧 Mantenimiento vencido",
+    "no_maintenance": "📋 Sin registros de mantenimiento",
+}
+
 # Umbral para alerta de kilometraje (proporción del max_mileage)
 MILEAGE_WARNING_THRESHOLD = 0.9    # 90%
 MILEAGE_CRITICAL_THRESHOLD = 1.0   # 100%
@@ -61,10 +70,12 @@ async def _create_notifications_batch(
     db: AsyncSession,
     notifications_data: list[dict],
 ) -> list[Notification]:
-    """Crea múltiples notificaciones en una sola transacción.
+    """Crea y despacha un lote (batch) de notificaciones en una transacción única.
 
-    También registra los cooldowns correspondientes y envía
-    por WebSocket a los usuarios que estén conectados.
+    Además de persistir en la base de datos, este servicio:
+    1. Registra un 'cooldown' para evitar avisos repetitivos e intrusivos.
+    2. Envía la notificación en tiempo real mediante WebSockets si el usuario
+       tiene una sesión activa.
     """
     if not notifications_data:
         return []
@@ -159,7 +170,7 @@ async def check_mileage_warning(db: AsyncSession) -> list[dict]:
             "user_id": v.user_id,
             "vehicle_id": v.id,
             "rule_key": rule_key,
-            "title": rule_key,
+            "title": RULE_TITLES[rule_key],
             "message": json.dumps({
                 "brand": v.brand,
                 "model": v.model,
@@ -205,7 +216,7 @@ async def check_mileage_critical(db: AsyncSession) -> list[dict]:
             "user_id": v.user_id,
             "vehicle_id": v.id,
             "rule_key": rule_key,
-            "title": rule_key,
+            "title": RULE_TITLES[rule_key],
             "message": json.dumps({
                 "brand": v.brand,
                 "model": v.model,
@@ -267,7 +278,7 @@ async def check_maintenance_overdue(db: AsyncSession) -> list[dict]:
             "user_id": vehicle.user_id,
             "vehicle_id": vehicle.id,
             "rule_key": rule_key,
-            "title": rule_key,
+            "title": RULE_TITLES[rule_key],
             "message": json.dumps({
                 "brand": vehicle.brand,
                 "model": vehicle.model,
@@ -321,7 +332,7 @@ async def check_no_maintenance(db: AsyncSession) -> list[dict]:
             "user_id": v.user_id,
             "vehicle_id": v.id,
             "rule_key": rule_key,
-            "title": rule_key,
+            "title": RULE_TITLES[rule_key],
             "message": json.dumps({
                 "brand": v.brand,
                 "model": v.model,
@@ -336,10 +347,10 @@ async def check_no_maintenance(db: AsyncSession) -> list[dict]:
 # ─── Orquestador principal ────────────────────────────────────
 
 async def run_all_checks(db: AsyncSession) -> int:
-    """Ejecuta todas las reglas de notificación.
+    """Orquestador principal que ejecuta secuencialmente todas las reglas.
 
-    Retorna la cantidad total de notificaciones generadas.
-    Cada regla ejecuta UNA sola query SQL optimizada.
+    Cada regla se resuelve con una única consulta SQL optimizada.
+    Retorna la cantidad total de nuevas notificaciones enviadas al batch.
     """
     all_notifications: list[dict] = []
 

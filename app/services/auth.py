@@ -1,9 +1,13 @@
-"""Servicios de autenticación y gestión de usuarios."""
+"""Servicios de lógica de negocio para autenticación y gestión de usuarios.
+
+Contiene funciones para el registro seguro, validación de credenciales
+y el flujo de recuperación de contraseña mediante OTP (One-Time Password).
+"""
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import random
+import secrets
 import string
 from datetime import datetime, timezone, timedelta
 
@@ -15,7 +19,11 @@ from app.schemas.user import LoginRequest, UserCreate
 
 
 async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
-    """Crea un nuevo usuario asíncronamente."""
+    """Registra un nuevo usuario en el sistema.
+
+    Realiza validaciones de reglas de negocio, como la unicidad del email,
+    y persiste al usuario con su contraseña hasheada de forma segura.
+    """
     existing_user = await user_repo.get_by_email(db, email=user_data.email)
     
     if existing_user:
@@ -45,7 +53,13 @@ async def authenticate_user(db: AsyncSession, credentials: LoginRequest) -> User
 
 
 async def create_otp_for_user(db: AsyncSession, email: str) -> None:
-    """Genera un OTP y lo guarda en la DB si el usuario existe. No falla si no existe."""
+    """Genera y almacena un código de recuperación (OTP) para un usuario.
+
+    Si el usuario existe:
+    1. Invalida códigos anteriores no usados.
+    2. Crea un nuevo código de 6 dígitos con 15 min de validez.
+    3. Simula el envío por correo (mock).
+    """
     user = await user_repo.get_by_email(db, email=email)
     if not user:
         # Prevenimos enumeración devolviendo OK en el router, pero no hacemos nada aquí
@@ -61,8 +75,8 @@ async def create_otp_for_user(db: AsyncSession, email: str) -> None:
     for t in old_tokens:
         t.is_used = True
 
-    # Generar nuevo de 6 dígitos
-    otp_code = ''.join(random.choices(string.digits, k=6))
+    # Generar nuevo de 6 dígitos seguro
+    otp_code = ''.join(secrets.choice(string.digits) for _ in range(6))
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     
     new_token = PasswordResetToken(

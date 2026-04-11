@@ -1,4 +1,8 @@
-"""Servicios para el registro de mantenimientos."""
+"""Servicios para la gestión del historial de mantenimientos.
+
+Centraliza la lógica para registrar servicios técnicos, consultar
+el historial por vehículo y obtener reportes consolidados para el usuario.
+"""
 
 from typing import Optional
 
@@ -16,7 +20,10 @@ from app.schemas.maintenance import MaintenanceCreate, MaintenanceUpdate
 async def create_maintenance(
     db: AsyncSession, vehicle_id: int, maintenance_data: MaintenanceCreate
 ) -> Maintenance:
-    """Registra un nuevo mantenimiento asíncronamente."""
+    """Registra una nueva actividad de mantenimiento para un vehículo.
+
+    Valida que el vehículo exista antes de crear el registro vinculado.
+    """
     vehicle = await vehicle_repo.get(db, id=vehicle_id)
     if not vehicle:
         raise HTTPException(
@@ -80,9 +87,10 @@ async def get_all_maintenances(
 async def get_user_maintenances(
     db: AsyncSession, user_id: int, skip: int = 0, limit: int = 50
 ) -> list[Maintenance]:
-    """Obtiene todos los mantenimientos de los vehículos del usuario.
+    """Obtiene el historial completo de mantenimientos de un usuario.
 
-    Filtra por usuario a través de la relación Vehicle → Maintenance.
+    Realiza un Join con la tabla de vehículos para filtrar todos los
+    registros que pertenecen a los vehículos de un usuario específico.
     """
     result = await db.execute(
         select(Maintenance)

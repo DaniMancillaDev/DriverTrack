@@ -1,12 +1,17 @@
 """Router de autenticación.
 
-Endpoints públicos para registro e inicio de sesión.
-Los tokens generados siempre usan sub=str(user_id).
+Este módulo gestiona los puntos de entrada para el registro de nuevos usuarios,
+el inicio de sesión y la gestión de tokens JWT (acceso y renovación).
+También incluye funcionalidades para la recuperación de contraseña mediante OTP.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 from app.core.security import create_access_token, create_refresh_token, decode_refresh_token
 from app.core.deps import CurrentUser
@@ -34,12 +39,17 @@ router = APIRouter(prefix="/auth", tags=["Autenticación"])
     status_code=status.HTTP_201_CREATED,
     summary="Registrar un nuevo usuario",
 )
-async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
-    """Crea una nueva cuenta y devuelve un JWT de acceso + refresh token.
+@limiter.limit("5/minute")
+async def register(request: Request, user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+    """Crea una nueva cuenta de usuario y devuelve el primer par de tokens JWT.
 
-    - El email debe ser único en la plataforma.
-    - La contraseña se almacena hasheada con bcrypt.
-    - sub del token = str(user.id)
+    Proceso:
+    1. Valida que el email no esté registrado previamente.
+    2. Hashea la contraseña de forma segura.
+    3. Crea el registro en la base de datos.
+    4. Genera un Access Token (corto plazo) y un Refresh Token (largo plazo).
+    
+    El campo 'sub' (subject) del token contiene el ID del usuario como cadena.
     """
     user = await auth_service.create_user(db=db, user_data=user_data)
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -56,13 +66,16 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     response_model=TokenResponse,
     summary="Iniciar sesión",
 )
-async def login(credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
-    """Valida las credenciales y devuelve un JWT de acceso + refresh token.
+@limiter.limit("10/minute")
+async def login(request: Request, credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
+    """Valida credenciales y emite tokens de sesión.
 
-    - sub del token = str(user.id)
-    - El access token expira según ACCESS_TOKEN_EXPIRE_MINUTES en settings.
-    - El refresh token expira según REFRESH_TOKEN_EXPIRE_DAYS en settings.
-    - Responde con 401 genérico para no revelar si el email existe.
+    Verificaciones:
+    - Existencia del usuario por email.
+    - Coincidencia de contraseña (hashing).
+    - Estado activo de la cuenta.
+
+    En caso de fallo, se devuelve un error 401 genérico para mitigar ataques de enumeración.
     """
     user = await auth_service.authenticate_user(db=db, credentials=credentials)
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -79,12 +92,14 @@ async def login(credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
     status_code=status.HTTP_200_OK,
     summary="Solicitar código OTP para restablecer contraseña",
 )
-async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    """Genera un OTP y lo envía simuladamente por email.
-    
-    Para prevenir enumeración de usuarios, siempre devuelve un mensaje genérico.
+@limiter.limit("3/minute")
+async def forgot_password(request: Request, body_request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Inicia el flujo de recuperación de contraseña.
+
+    Genera un código OTP de 6 dígitos con expiración y lo vincula al email.
+    Por seguridad, la respuesta es siempre positiva para no confirmar la existencia del email.
     """
-    await auth_service.create_otp_for_user(db, request.email)
+    await auth_service.create_otp_for_user(db, body_request.email)
     return {"message": "Si el correo está registrado, recibirás un código OTP de 6 dígitos."}
 
 
@@ -93,9 +108,10 @@ async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Dep
     status_code=status.HTTP_200_OK,
     summary="Verificar código OTP",
 )
-async def verify_otp(request: VerifyOTPRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def verify_otp(request: Request, body_request: VerifyOTPRequest, db: AsyncSession = Depends(get_db)):
     """Verifica si el OTP proporcionado es válido y no ha expirado."""
-    await auth_service.verify_otp(db, request.email, request.otp_code)
+    await auth_service.verify_otp(db, body_request.email, body_request.otp_code)
     return {"message": "Código válido"}
 
 
@@ -104,10 +120,11 @@ async def verify_otp(request: VerifyOTPRequest, db: AsyncSession = Depends(get_d
     status_code=status.HTTP_200_OK,
     summary="Restablecer la contraseña con OTP",
 )
-async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def reset_password(request: Request, body_request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Valida el OTP y establece una nueva contraseña."""
     await auth_service.reset_password_with_otp(
-        db, request.email, request.otp_code, request.new_password
+        db, body_request.email, body_request.otp_code, body_request.new_password
     )
     return {"message": "Contraseña actualizada exitosamente"}
 

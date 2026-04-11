@@ -1,8 +1,8 @@
-"""Configuración central de la aplicación.
+"""Configuración centralizada de la aplicación.
 
-Carga las variables de entorno desde un archivo .env
-usando Pydantic Settings. Todos los valores sensibles
-son obligatorios y se validan al arrancar la app.
+Este módulo carga las variables de entorno utilizando Pydantic Settings,
+asegurando que todos los parámetros sensibles (como llaves JWT) sean
+validados estrictamente durante el arranque de la plataforma.
 """
 
 from typing import List
@@ -12,7 +12,11 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Configuración global cargada desde variables de entorno."""
+    """Gestor de configuración global.
+
+    Define los parámetros de conexión a base de datos, seguridad JWT,
+    reglas de CORS, y credenciales para servicios externos (MinIO, OWM).
+    """
 
     # URL de conexión a la Base de Datos (SQLite por defecto para desarrollo)
     database_url: str = "sqlite:///./drivetrack.db"

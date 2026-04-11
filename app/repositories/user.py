@@ -1,4 +1,8 @@
-"""Repositorio específico para la entidad User."""
+"""Repositorio especializado para la gestión de la entidad User.
+
+Extiende la funcionalidad base para incluir búsquedas por email y la
+creación de usuarios con contraseñas ya procesadas (hasheadas).
+"""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +13,10 @@ from app.schemas.user import UserCreate
 
 
 class UserRepository(BaseRepository[User, UserCreate, UserCreate]):
-    """Repositorio para gestionar Usuarios asíncronamente."""
+    """Capa de acceso a datos para usuarios.
+
+    Provee métodos específicos para la autenticación y el registro seguro.
+    """
 
     async def get_by_email(self, db: AsyncSession, *, email: str) -> User | None:
         """Busca un usuario por su dirección de email."""

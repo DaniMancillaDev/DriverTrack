@@ -1,7 +1,8 @@
-"""Configuración de la base de datos con SQLAlchemy.
+"""Configuración de persistencia con SQLAlchemy Asíncrono.
 
-Define el motor de conexión, la fábrica de sesiones
-y la clase base para los modelos ORM.
+Este módulo define la infraestructura de conexión a la base de datos,
+configurando el motor de ejecución, la fábrica de sesiones y la clase base
+para el mapeo objeto-relacional (ORM).
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
@@ -35,7 +36,11 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 class Base(DeclarativeBase):
-    """Clase base declarativa para todos los modelos SQLAlchemy."""
+    """Mapeo base para la estructura declarativa de SQLAlchemy.
+
+    Todos los modelos de la aplicación heredan de esta clase para ser
+    reconocidos por el motor de migraciones y la sesión de base de datos.
+    """
     pass
 
 
