@@ -7,6 +7,7 @@ Contiene la lógica de negocio y las operaciones de base de datos
 from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timezone
 
 from app.models.user import User
 from app.schemas.user import UserUpdate
@@ -89,6 +90,7 @@ async def change_password(
         return False, "Contraseña actual incorrecta"
 
     db_user.hashed_password = get_password_hash(new_password)
+    db_user.password_changed_at = datetime.now(timezone.utc)
     db.add(db_user)
     await db.commit()
     return True, "Contraseña actualizada exitosamente"

@@ -53,15 +53,24 @@ async def seed_vehicle_types(session: AsyncSession) -> int:
 
 
 async def seed_admin_user(session: AsyncSession) -> bool:
-    """Crea el usuario admin si no existe.
+    """Crea el usuario admin si no existe, o actualiza su hash si ya existía.
+
+    En desarrollo es normal que la contraseña del seed cambie. Este seed
+    siempre sincroniza el hash para que las credenciales del archivo sean
+    las que funcionan, evitando errores 401 por hashes obsoletos.
 
     Returns:
-        True si fue creado, False si ya existía.
+        True si fue creado, False si ya existía (solo actualizado).
     """
     result = await session.execute(
         select(User).where(User.email == ADMIN_EMAIL)
     )
-    if result.scalars().first() is not None:
+    existing = result.scalars().first()
+
+    if existing is not None:
+        # Actualizar el hash por si la contraseña del seed cambió
+        existing.hashed_password = get_password_hash(ADMIN_PASSWORD)
+        await session.commit()
         return False
 
     admin = User(

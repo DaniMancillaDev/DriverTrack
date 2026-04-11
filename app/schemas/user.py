@@ -100,17 +100,32 @@ class UserResponse(BaseModel):
     is_active: bool
     photo_url: Optional[str] = None
     created_at: datetime
+    password_changed_at: Optional[datetime] = None
 
     # Permite crear el esquema desde un objeto ORM de SQLAlchemy
     model_config = {"from_attributes": True}
+
+
+class RefreshTokenRequest(BaseModel):
+    """Body para solicitar un nuevo access token vía refresh token."""
+
+    refresh_token: str
 
 
 class TokenResponse(BaseModel):
     """Respuesta de autenticación con JWT."""
 
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+class RefreshTokenResponse(BaseModel):
+    """Respuesta del endpoint /auth/refresh."""
+
+    access_token: str
+    token_type: str = "bearer"
 
 
 class PresignedUrlResponse(BaseModel):

@@ -28,6 +28,7 @@ class User(Base):
     photo_url: Mapped[Optional[str]] = mapped_column(
         String(512), nullable=True, default=None
     )
+    password_changed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc)
     )
