@@ -20,3 +20,6 @@ venv/
 # MinIO local storage y binario
 minio_data/
 minio_bin
+
+# Ignorar Documentos y Papers
+*.pdf
