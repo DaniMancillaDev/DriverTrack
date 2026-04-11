@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # Ejemplo: ["https://drivertrack.app", "https://api.drivertrack.app"]
     allowed_origins: List[str] = ["http://localhost:8080", "http://localhost:3000"]
 
+    # --- OpenWeatherMap ---
+    # API key para el servicio de clima (proxy para el frontend)
+    openweather_api_key: str = ""
+
     # --- MinIO / S3 ---
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "minioadmin"

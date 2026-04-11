@@ -39,6 +39,32 @@ class LoginRequest(BaseModel):
     password: str
 
 
+# ─── Requests de autenticación ────────────────────────────────
+
+class ForgotPasswordRequest(BaseModel):
+    """Datos para solicitar un código OTP al correo electrónico."""
+    email: EmailStr
+
+class VerifyOTPRequest(BaseModel):
+    """Datos para verificar si el OTP es correcto antes de cambiar la contraseña."""
+    email: EmailStr
+    otp_code: str = Field(..., min_length=6, max_length=6)
+
+class ResetPasswordRequest(BaseModel):
+    """Datos para confirmar el OTP y establecer una nueva contraseña."""
+    email: EmailStr
+    otp_code: str = Field(..., min_length=6, max_length=6)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_strength(cls, v: str) -> str:
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("La nueva contraseña debe contener al menos una mayúscula")
+        if not re.search(r"\d", v):
+            raise ValueError("La nueva contraseña debe contener al menos un número")
+        return v
+
 # ─── Requests de actualización ────────────────────────────────
 
 
@@ -88,6 +114,13 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class UserPreferencesUpdate(BaseModel):
+    """Datos para actualizar las preferencias de notificaciones."""
+    push_notifications: Optional[bool] = None
+    service_reminders: Optional[bool] = None
+    critical_alerts: Optional[bool] = None
+
+
 # ─── Responses ────────────────────────────────────────────────
 
 
@@ -101,6 +134,11 @@ class UserResponse(BaseModel):
     photo_url: Optional[str] = None
     created_at: datetime
     password_changed_at: Optional[datetime] = None
+    
+    # Preferencias de notificaciones
+    pref_push_notifications: bool = True
+    pref_service_reminders: bool = True
+    pref_critical_alerts: bool = True
 
     # Permite crear el esquema desde un objeto ORM de SQLAlchemy
     model_config = {"from_attributes": True}

@@ -4,6 +4,8 @@ Configura la instancia de FastAPI, los middlewares de seguridad
 y registra todos los routers de la API.
 """
 
+import asyncio
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -15,8 +17,9 @@ from app.core.config import settings
 from app.database import engine, Base, AsyncSessionLocal
 import app.models  # Importante para que SQLAlchemy detecte todos los modelos
 from app.core.seeds import run_seeds
-from app.routers import auth, maintenance, vehicles, users, notifications, notifications_ws
+from app.routers import auth, maintenance, vehicles, users, notifications, notifications_ws, weather
 from app.services.storage import ensure_bucket_exists
+from app.services.notification_scheduler import notification_scheduler_loop
 
 
 # ─── Security Headers Middleware ─────────────────────────────
@@ -60,8 +63,18 @@ async def lifespan(app: FastAPI):
         print(f"  ⚠️  MinIO no disponible: {exc}")
         print("     Las funciones de foto no estarán disponibles.")
 
+    # 4. Iniciar scheduler de notificaciones automáticas en background
+    scheduler_task = asyncio.create_task(notification_scheduler_loop())
+    print("  ✓ Scheduler de notificaciones automáticas iniciado")
+
     yield
+
     # Limpieza al cerrar
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
     await engine.dispose()
 
 
@@ -121,6 +134,7 @@ app.include_router(vehicles.router)
 app.include_router(maintenance.router)
 app.include_router(notifications.router)
 app.include_router(notifications_ws.router)
+app.include_router(weather.router)
 
 
 # ─── Root ─────────────────────────────────────────────────────

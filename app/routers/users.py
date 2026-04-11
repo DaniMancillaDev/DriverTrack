@@ -58,6 +58,30 @@ async def update_current_user(
     return updated
 
 
+from app.schemas.user import UserPreferencesUpdate
+
+@router.patch("/me/preferences", response_model=UserResponse, summary="Actualizar preferencias de notificaciones")
+async def update_preferences(
+    data: UserPreferencesUpdate,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Actualiza los booleanos de preferencias de notificaciones."""
+    updated = await users_service.update_preferences(
+        db,
+        user_id=current_user.id,
+        push_notifications=data.push_notifications,
+        service_reminders=data.service_reminders,
+        critical_alerts=data.critical_alerts,
+    )
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
+    return updated
+
+
 @router.post(
     "/me/change-password",
     status_code=status.HTTP_200_OK,

@@ -32,6 +32,11 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc)
     )
+    
+    # Preferencias de notificaciones
+    pref_push_notifications: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    pref_service_reminders: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    pref_critical_alerts: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Un usuario puede tener varios vehículos
     vehicles: Mapped[list["Vehicle"]] = relationship(

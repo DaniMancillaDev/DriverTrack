@@ -8,5 +8,11 @@ from app.models.user import User
 from app.models.vehicle import Vehicle, VehicleType
 from app.models.maintenance import Maintenance
 from app.models.notification import Notification, NotificationType
+from app.models.notification_cooldown import NotificationCooldown
+from app.models.password_reset import PasswordResetToken
 
-__all__ = ["User", "Vehicle", "VehicleType", "Maintenance", "Notification", "NotificationType"]
+__all__ = [
+    "User", "Vehicle", "VehicleType", "Maintenance",
+    "Notification", "NotificationType", "NotificationCooldown",
+    "PasswordResetToken",
+]

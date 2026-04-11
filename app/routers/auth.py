@@ -18,6 +18,9 @@ from app.schemas.user import (
     UserCreate,
     UserResponse,
     TokenResponse,
+    ForgotPasswordRequest,
+    VerifyOTPRequest,
+    ResetPasswordRequest,
 )
 from app.services import auth as auth_service
 from app.services import users as users_service
@@ -69,6 +72,44 @@ async def login(credentials: LoginRequest, db: AsyncSession = Depends(get_db)):
         refresh_token=refresh_token,
         user=UserResponse.model_validate(user),
     )
+
+
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_200_OK,
+    summary="Solicitar código OTP para restablecer contraseña",
+)
+async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Genera un OTP y lo envía simuladamente por email.
+    
+    Para prevenir enumeración de usuarios, siempre devuelve un mensaje genérico.
+    """
+    await auth_service.create_otp_for_user(db, request.email)
+    return {"message": "Si el correo está registrado, recibirás un código OTP de 6 dígitos."}
+
+
+@router.post(
+    "/verify-otp",
+    status_code=status.HTTP_200_OK,
+    summary="Verificar código OTP",
+)
+async def verify_otp(request: VerifyOTPRequest, db: AsyncSession = Depends(get_db)):
+    """Verifica si el OTP proporcionado es válido y no ha expirado."""
+    await auth_service.verify_otp(db, request.email, request.otp_code)
+    return {"message": "Código válido"}
+
+
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_200_OK,
+    summary="Restablecer la contraseña con OTP",
+)
+async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Valida el OTP y establece una nueva contraseña."""
+    await auth_service.reset_password_with_otp(
+        db, request.email, request.otp_code, request.new_password
+    )
+    return {"message": "Contraseña actualizada exitosamente"}
 
 
 @router.post(

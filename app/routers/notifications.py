@@ -15,6 +15,7 @@ from app.schemas.notification import (
     PaginatedNotificationsResponse,
 )
 from app.services import notification as notification_service
+from app.services.notification_rules import run_all_checks
 from app.routers.notifications_ws import manager
 
 router = APIRouter(prefix="/notifications", tags=["Notificaciones"])
@@ -166,3 +167,24 @@ async def delete_notification(
             detail="No autorizado para eliminar esta notificación",
         )
     await notification_service.delete_notification(db=db, notification_id=notification_id)
+
+
+@router.post(
+    "/check-now",
+    summary="Ejecutar verificación de notificaciones automáticas",
+)
+async def check_now(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Ejecuta manualmente el checker de reglas de notificación.
+
+    Útil para testing y desarrollo. Ejecuta todas las reglas
+    para todos los usuarios (no solo el actual).
+    Requiere autenticación JWT.
+    """
+    count = await run_all_checks(db)
+    return {
+        "message": f"{count} notificaciones generadas",
+        "count": count,
+    }

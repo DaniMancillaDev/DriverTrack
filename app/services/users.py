@@ -71,6 +71,31 @@ async def update_profile(db: AsyncSession, user_id: int, full_name: str) -> Opti
     return db_user
 
 
+async def update_preferences(
+    db: AsyncSession,
+    user_id: int,
+    push_notifications: Optional[bool] = None,
+    service_reminders: Optional[bool] = None,
+    critical_alerts: Optional[bool] = None,
+) -> Optional[User]:
+    """Actualiza las preferencias de notificaciones del usuario."""
+    db_user = await get_user(db, user_id)
+    if not db_user:
+        return None
+
+    if push_notifications is not None:
+        db_user.pref_push_notifications = push_notifications
+    if service_reminders is not None:
+        db_user.pref_service_reminders = service_reminders
+    if critical_alerts is not None:
+        db_user.pref_critical_alerts = critical_alerts
+
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
+
 async def change_password(
     db: AsyncSession,
     user_id: int,
