@@ -1,0 +1,47 @@
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.venv
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Archivos de entorno - MUY IMPORTANTE NO SUBIR CONTRASEÑAS AL CONTENEDOR
+.env
+.env.*
+
+# Base de datos SQLite y datos
+*.db
+*.sqlite3
+
+# MinIO
+minio_data/
+minio_bin
+
+# Otros
+.vscode/
+.idea/
+*.pdf

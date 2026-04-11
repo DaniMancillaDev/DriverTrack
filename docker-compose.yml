@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    container_name: drivetrack_api
+    restart: unless-stopped
+    env_file:
+      - .env  # Cargamos las variables DIRECTAMENTE de tu .env local (no hay que cambiarlo)
+    volumes:
+      # Montamos la base de datos (SQLite) hacia tu archivo local.
+      # IMPORTANTE: Asegúrate de que el archivo "drivetrack.db" en tu laptop
+      # YA EXISTA antes de ejecutar "docker compose up", de lo contrario 
+      # Docker accidentalmente creará una CARPETA con ese nombre.
+      - ./drivetrack.db:/app/drivetrack.db
+    depends_on:
+      - minio
+    # Para que Uvicorn pueda acceder a Minio a través de la interfaz de red compartida
+    # si utilizaste localhost en tu .env en lugar de minio en la red de docker.
+    network_mode: "host" 
+
+  # Como elegiste seguir con la arquitectura y base de datos similar, 
+  # Incluyo MinIO ya que la aplicación tiene módulos para guardar fotos / files y depende de Minio.
+  minio:
+    image: minio/minio:latest
+    container_name: drivetrack_minio
+    restart: unless-stopped
+    environment:
+      # Lee de tu entorno el key y password o usa default si no existen ahí
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    network_mode: "host"
+
+volumes:
+  minio_data:
