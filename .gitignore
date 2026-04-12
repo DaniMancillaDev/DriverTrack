@@ -23,3 +23,6 @@ minio_bin
 
 # Ignorar Documentos y Papers
 *.pdf
+
+# Artefactos de despliegue
+*.zip
