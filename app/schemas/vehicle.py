@@ -23,7 +23,7 @@ class VehicleTypeResponse(BaseModel):
 class VehicleCreate(BaseModel):
     """Datos requeridos para registrar un nuevo vehículo."""
 
-    user_id: int
+    user_id: Optional[int] = None
     type_id: int
     brand: str
     model: str

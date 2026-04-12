@@ -31,9 +31,16 @@ async def create_maintenance(
             detail="Vehículo no encontrado",
         )
 
-    return await maintenance_repo.create_with_vehicle(
+    maintenance = await maintenance_repo.create_with_vehicle(
         db, obj_in=maintenance_data, vehicle_id=vehicle_id
     )
+
+    # Sincronización automática: Si el kilometraje del mantenimiento es mayor, 
+    # actualizamos el odómetro del vehículo.
+    if maintenance.mileage > vehicle.mileage:
+        await vehicle_repo.update(db, db_obj=vehicle, obj_in={"mileage": maintenance.mileage})
+
+    return maintenance
 
 
 async def get_vehicle_maintenances(
