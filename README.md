@@ -20,20 +20,12 @@
 
 ## 🏗️ Arquitectura General
 
-```
-┌─────────────────────┐       REST + JSON        ┌──────────────────────┐
-│                     │  ──────────────────────►  │                      │
-│   Flutter App       │       JWT (Bearer)        │   FastAPI Backend    │
-│   (Frontend)        │  ◄──────────────────────  │   (DriveTrack API)   │
-│                     │       JSON Response        │                      │
-└─────────────────────┘                           └──────────────────────┘
-         │                                                  │
-    ┌────┴─────┐                              ┌────────────┼────────────┐
-    │ WebSocket │                              │            │            │
-    │ (Notifications)│                         │  PostgreSQL │   MinIO    │
-    └──────────┘                               │  / SQLite   │   / S3     │
-                                               └────────────┴────────────┘
-```
+| Flutter App | | FastAPI Backend |
+|---|---|---|
+| `DriverTrack FE` | **REST + JWT ──►** | `DriverTrack API` |
+| | **◄── JSON Response** | |
+| WebSocket (Notifications) | | PostgreSQL / SQLite |
+| | | MinIO / S3 (Fotos) |
 
 El proyecto sigue principios **SOLID** y una arquitectura de capas:
 
