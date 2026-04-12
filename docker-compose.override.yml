@@ -1,0 +1,23 @@
+# ============================================================
+# Override de producción — Nginx Proxy Manager
+# ============================================================
+# Este archivo se carga automáticamente junto con docker-compose.yml
+# cuando ejecutas `docker compose up` en el servidor de producción.
+#
+# ⚠️ NO uses este archivo en desarrollo.
+# Para desarrollo, renómbralo o elimínalo temporalmente.
+# ============================================================
+
+services:
+  api:
+    networks:
+      - npm_network
+
+  minio:
+    networks:
+      - npm_network
+
+networks:
+  npm_network:
+    name: nginx-proxy-manager_default
+    external: true

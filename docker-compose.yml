@@ -15,7 +15,6 @@ services:
       - "8010:8010" # Exponemos la API en el puerto 8010 para evitar conflictos con django (8000)
     networks:
       - drivetrack_net
-      - npm_network
 
   minio:
     image: minio/minio:latest
@@ -32,14 +31,10 @@ services:
       - "9001:9001" # Consola UI Minio
     networks:
       - drivetrack_net
-      - npm_network
 
 networks:
   drivetrack_net:
     driver: bridge # Red personalizada que aísla los contenedores pero permite que se hablen internamente
-  npm_network:
-    name: nginx-proxy-manager_default
-    external: true
 
 volumes:
   minio_data:

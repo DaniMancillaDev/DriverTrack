@@ -1,5 +1,5 @@
-# Usa la imagen base oficial ultra-ligera de Python 3.12
-FROM python:3.12-slim
+# Usa la imagen base oficial ultra-ligera de Python 3.14
+FROM python:3.14-slim
 
 # Evita que Python escriba archivos .pyc y no se congele el output en los logs
 ENV PYTHONDONTWRITEBYTECODE=1 \
