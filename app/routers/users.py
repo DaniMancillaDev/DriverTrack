@@ -5,7 +5,7 @@ actualicen su información de perfil, cambien su contraseña y gestionen
 su foto de perfil mediante integración con MinIO.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -142,8 +142,9 @@ async def get_photo_upload_url(current_user: CurrentUser):
     summary="Confirmar subida de foto de perfil",
 )
 async def confirm_photo_upload(
-    data: PhotoConfirmRequest,
     current_user: CurrentUser,
+    object_key: str = None,
+    data: Optional[PhotoConfirmRequest] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Confirma que la foto ha sido subida correctamente al almacenamiento.
@@ -151,15 +152,22 @@ async def confirm_photo_upload(
     Actualiza el campo `photo_url` en la base de datos con una URL de acceso
     temporal (firmada) para el recurso recién subido.
     """
+    actual_key = object_key or (data.object_key if data else None)
+    if not actual_key:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Falta el parámetro object_key",
+        )
+
     # Validar que el object_key pertenece a este usuario
-    if not data.object_key.startswith(f"avatars/{current_user.id}/"):
+    if not actual_key.startswith(f"avatars/{current_user.id}/"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="object_key inválido para este usuario",
         )
 
     # Generar URL de acceso (7 días)
-    photo_url = storage_service.generate_presigned_get_url(data.object_key)
+    photo_url = storage_service.generate_presigned_get_url(actual_key)
 
     updated = await users_service.update_photo_url(
         db, user_id=current_user.id, photo_url=photo_url

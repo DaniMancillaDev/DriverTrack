@@ -143,6 +143,9 @@ async def websocket_notifications(
     except (asyncio.TimeoutError, json.JSONDecodeError):
         await websocket.close(code=4001, reason="Timeout esperando auth o formato inválido")
         return
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnect before auth")
+        return
 
     # ── Autenticación token obtenida ──
     user_id = await _authenticate_ws_token(token)
