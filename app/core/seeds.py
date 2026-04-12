@@ -17,13 +17,13 @@ VEHICLE_TYPES = [
     {
         "slug": "car",
         "label": "Car",
-        "icon": "directions_car",
+        "icon": "directions_car_filled_rounded",
         "image_url": "https://cdn-icons-png.flaticon.com/512/741/741407.png",
     },
     {
         "slug": "motorcycle",
         "label": "Motorcycle",
-        "icon": "two_wheeler",
+        "icon": "motorcycle_rounded",
         "image_url": "https://cdn-icons-png.flaticon.com/512/2451/2451685.png",
     },
 ]
@@ -39,17 +39,35 @@ ADMIN_FULL_NAME = "Admin DriveTrack"
 async def seed_vehicle_types(session: AsyncSession) -> int:
     """Inserta los tipos de vehículo si la tabla está vacía.
 
-    Returns:
-        Número de registros insertados (0 si ya existían).
-    """
-    result = await session.execute(select(VehicleType).limit(1))
-    if result.scalars().first() is not None:
-        return 0
+    Si ya existen registros, sincroniza los campos icon y label con los
+    valores canónicos del catálogo. Esto garantiza que cambios en el seed
+    (ej. renombrar un icon) se propaguen sin necesidad de migración manual.
 
-    types = [VehicleType(**data) for data in VEHICLE_TYPES]
-    session.add_all(types)
-    await session.commit()
-    return len(types)
+    Returns:
+        Número de registros insertados (0 si ya existían, pero pudo haber updates).
+    """
+    result = await session.execute(select(VehicleType))
+    existing = list(result.scalars().all())
+
+    if not existing:
+        types = [VehicleType(**data) for data in VEHICLE_TYPES]
+        session.add_all(types)
+        await session.commit()
+        return len(types)
+
+    # Sincronizar campos que puedan haber cambiado en el seed
+    slug_map = {d["slug"]: d for d in VEHICLE_TYPES}
+    updated = 0
+    for vt in existing:
+        canonical = slug_map.get(vt.slug)
+        if canonical and (vt.icon != canonical["icon"] or vt.label != canonical["label"]):
+            vt.icon = canonical["icon"]
+            vt.label = canonical["label"]
+            updated += 1
+    if updated:
+        await session.commit()
+        print(f"  ✓ Updated {updated} vehicle type(s) to match seed")
+    return 0
 
 
 async def seed_admin_user(session: AsyncSession) -> bool:
